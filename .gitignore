@@ -1,0 +1,62 @@
+# ==============================
+# Dependencies
+# ==============================
+node_modules/
+
+# ==============================
+# Environment variables / secrets
+# Real .env files are NEVER committed. Explicit .example files below
+# are allowed through even though the broader patterns above would
+# otherwise catch them.
+# ==============================
+.env
+.env.local
+.env.*.local
+!.env.example
+!.env.local.example
+
+# ==============================
+# Next.js
+# ==============================
+.next/
+out/
+next-env.d.ts
+
+# ==============================
+# Backend build output
+# ==============================
+dist/
+build/
+
+# ==============================
+# TypeScript
+# ==============================
+*.tsbuildinfo
+
+# ==============================
+# Logs
+# ==============================
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ==============================
+# OS files
+# ==============================
+.DS_Store
+Thumbs.db
+
+# ==============================
+# Editors
+# ==============================
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.kilo/
+.cursor/
+.windsurf/
+# ==============================
+# Misc
+# ==============================
+coverage/
