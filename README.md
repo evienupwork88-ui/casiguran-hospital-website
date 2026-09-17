@@ -30,8 +30,8 @@ consulted before making any structural changes.
 
 ```
 casiguran-hospital-website/
-├── frontend/           Next.js app (public website + admin CMS UI) — not yet scaffolded
-├── backend/             Express API — not yet scaffolded
+├── frontend/           Next.js app (public website + admin CMS UI)
+├── backend/             Express API
 ├── docs/
 │   ├── blueprint.md         Full technical blueprint
 │   └── decisions/           Architecture decision records (ADRs), as needed
@@ -44,11 +44,12 @@ casiguran-hospital-website/
 This project is being built incrementally (Agile increments, one small
 reviewable step at a time). Current status:
 
-- [x] **Increment 1 — Project foundation** (this commit): repo structure,
-      documentation, `.gitignore`, environment variable references, Git
-      initialized.
-- [ ] Frontend scaffold (Next.js + TypeScript + Tailwind)
-- [ ] Backend scaffold (Express + TypeScript) + health check
+- [x] **Increment 1 — Project foundation**: repo structure, documentation,
+      `.gitignore`, environment variable references, Git initialized.
+- [x] **Increment 2 — Frontend & backend scaffolding**: Next.js
+      (TypeScript, Tailwind) frontend and Express (TypeScript) backend
+      both scaffolded and runnable independently; backend health check
+      live at `GET /api/health`.
 - [ ] Database schema
 - [ ] Authentication (bcrypt + sessions)
 - [ ] Public website (placeholder content)
@@ -57,6 +58,31 @@ reviewable step at a time). Current status:
 - [ ] Security hardening
 - [ ] Deployment
 
-No application code, database, or API exists yet. Local setup
-instructions for running the frontend and backend will be added here
-once each is scaffolded in a later increment.
+No database, API business logic, or auth exists yet — only the two
+application shells and a health check.
+
+## Running Locally
+
+Frontend and backend are independent Node projects — run each in its
+own terminal.
+
+**Backend** (Express API, runs on http://localhost:4000):
+```bash
+cd backend
+npm install
+cp .env.example .env      # fill in values as needed; defaults work for now
+npm run dev
+```
+Verify it's up: `curl http://localhost:4000/api/health` should return
+`{"status":"ok", ...}`.
+
+**Frontend** (Next.js, runs on http://localhost:3000):
+```bash
+cd frontend
+npm install
+cp .env.local.example .env.local   # fill in values as needed
+npm run dev
+```
+
+The two are not yet wired together — the frontend does not call the
+backend yet. That comes in a later increment.
