@@ -6,18 +6,22 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "seed:admin": "tsx db/seeds/seed-admin.ts"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "private": "true",
   "dependencies": {
+    "@supabase/supabase-js": "^2.116.0",
+    "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1"
   },
   "devDependencies": {
+    "@types/bcrypt": "^6.0.0",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^22.20.3",

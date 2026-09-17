@@ -50,7 +50,10 @@ reviewable step at a time). Current status:
       (TypeScript, Tailwind) frontend and Express (TypeScript) backend
       both scaffolded and runnable independently; backend health check
       live at `GET /api/health`.
-- [ ] Database schema
+- [x] **Increment 3 — Database**: all 9 tables from the blueprint
+      created in Supabase (schema verified against a real local
+      Postgres before delivery — see `backend/db/`), admin account
+      seed script (bcrypt), Express-to-database connectivity confirmed.
 - [ ] Authentication (bcrypt + sessions)
 - [ ] Public website (placeholder content)
 - [ ] Admin CMS
@@ -58,8 +61,10 @@ reviewable step at a time). Current status:
 - [ ] Security hardening
 - [ ] Deployment
 
-No database, API business logic, or auth exists yet — only the two
-application shells and a health check.
+Database schema exists, but no API endpoints read or write to it yet —
+that starts with Authentication in the next increment. See
+[`backend/db/README.md`](backend/db/README.md) for full database setup
+instructions.
 
 ## Running Locally
 
