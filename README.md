@@ -54,17 +54,32 @@ reviewable step at a time). Current status:
       created in Supabase (schema verified against a real local
       Postgres before delivery — see `backend/db/`), admin account
       seed script (bcrypt), Express-to-database connectivity confirmed.
-- [ ] Authentication (bcrypt + sessions)
+- [x] **Increment 4 — Authentication**: `POST /api/auth/login`,
+      `POST /api/auth/logout`, `GET /api/auth/me`; bcrypt password
+      verification, opaque server-side sessions (hashed, revocable),
+      `requireAuth`/`requireRole` RBAC middleware, CSRF protection
+      (double-submit cookie), login rate limiting, Zod validation,
+      Helmet security headers, centralized error handling. Verified
+      with 12 real HTTP test scenarios before delivery (see commit
+      message for the full list) — login/logout flow, wrong password,
+      unknown email (no enumeration), invalid input, missing/wrong/
+      correct CSRF token, session revocation, deactivated account,
+      rate-limit exhaustion, and RBAC role checks.
 - [ ] Public website (placeholder content)
 - [ ] Admin CMS
 - [ ] File/document management
 - [ ] Security hardening
 - [ ] Deployment
 
-Database schema exists, but no API endpoints read or write to it yet —
-that starts with Authentication in the next increment. See
-[`backend/db/README.md`](backend/db/README.md) for full database setup
-instructions.
+No public-facing pages or admin UI exist yet — Increment 4 is API-only,
+tested via curl/Postman. The frontend does not have a login page yet;
+that's part of Admin CMS.
+
+**New required env var:** `SESSION_SECRET` — the backend will now
+refuse to start without it. Generate one with:
+```
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
 
 ## Running Locally
 
