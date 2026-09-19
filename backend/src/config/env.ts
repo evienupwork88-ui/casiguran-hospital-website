@@ -39,6 +39,9 @@ export const env = {
 
   supabaseUrl: requireEnv("SUPABASE_URL"),
   supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  storageBucketName: envString("STORAGE_BUCKET_NAME", "cdh-documents"),
+  maxUploadImageBytes: envNumber("MAX_UPLOAD_IMAGE_MB", 5) * 1024 * 1024,
+  maxUploadDocBytes: envNumber("MAX_UPLOAD_DOC_MB", 15) * 1024 * 1024,
 
   sessionCookieName: envString("SESSION_COOKIE_NAME", "cdh_session"),
   sessionSecret: requireEnv("SESSION_SECRET"),

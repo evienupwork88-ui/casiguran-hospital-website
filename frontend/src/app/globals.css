@@ -1,8 +1,22 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f7fb;
+  --foreground: #1f2937;
+  --card: rgba(255, 255, 255, 0.82);
+  --card-strong: #ffffff;
+  --muted: #5f6777;
+  --brand-50: #f5f3ff;
+  --brand-100: #efe9ff;
+  --brand-200: #ddd6fe;
+  --brand-300: #c4b5fd;
+  --brand-500: #8b5cf6;
+  --brand-600: #7c3aed;
+  --brand-700: #6d28d9;
+  --brand-800: #4c1d95;
+  --brand-900: #2e1065;
+  --heading: #0f172a;
+  --shadow-soft: 0 18px 40px rgba(76, 29, 149, 0.1);
 }
 
 @theme inline {
@@ -12,15 +26,43 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(124, 58, 237, 0.12), transparent 28%),
+    linear-gradient(180deg, #faf7ff 0%, #f7f7fb 28%, #f8fafc 100%);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--heading);
+  letter-spacing: -0.04em;
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+}
+
+::selection {
+  background: rgba(124, 58, 237, 0.18);
 }
