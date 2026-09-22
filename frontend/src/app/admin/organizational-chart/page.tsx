@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getAdminDocuments, type DocumentItem, uploadDocument } from "@/lib/api/documents";
+import { deleteDocument, getAdminDocuments, type DocumentItem, uploadDocument } from "@/lib/api/documents";
+import { useNotifications } from "@/components/providers/notification-provider";
 
 const ALLOWED = ["PDF", "PNG", "JPG", "JPEG", "WEBP"];
 
@@ -13,6 +14,7 @@ export default function AdminOrganizationalChartPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   async function loadChart() {
     try {
@@ -29,6 +31,8 @@ export default function AdminOrganizationalChartPage() {
   useEffect(() => {
     loadChart();
   }, []);
+
+  const chartFileUrl = chart?.viewUrl ?? chart?.downloadUrl ?? null;
 
   async function handleUpload(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -64,13 +68,35 @@ export default function AdminOrganizationalChartPage() {
       form.append("file", selectedFile);
 
       const uploaded = await uploadDocument(form);
+      if (chart) {
+        try {
+          await deleteDocument(chart.id);
+        } catch (deleteError) {
+          await deleteDocument(uploaded.id).catch(() => undefined);
+          throw deleteError;
+        }
+      }
       setChart(uploaded);
+      showSuccess("Organizational chart replaced.", "Saved");
       setSelectedFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to upload the organizational chart.");
+      const message = err instanceof Error ? err.message : "Unable to upload the organizational chart.";
+      setError(message);
+      showError(message, "Unable to save chart");
     } finally {
       setIsUploading(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!chart || !window.confirm("Delete the current organizational chart?")) return;
+    try {
+      await deleteDocument(chart.id);
+      setChart(null);
+      showSuccess("Organizational chart deleted.", "Deleted");
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Unable to delete the organizational chart.", "Delete failed");
     }
   }
 
@@ -116,7 +142,7 @@ export default function AdminOrganizationalChartPage() {
           </div>
 
           {error ? (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
+            <div role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
           ) : null}
         </form>
 
@@ -130,36 +156,51 @@ export default function AdminOrganizationalChartPage() {
                   <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Uploaded</p>
                   <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-900">{chart.title}</h3>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <a
-                    href={chart.viewUrl ?? "#"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800"
-                  >
-                    View
-                  </a>
-                  <a
-                    href={chart.downloadUrl ?? chart.viewUrl ?? "#"}
-                    download
-                    className="rounded-full border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
-                  >
-                    Download
-                  </a>
-                </div>
+                  {chartFileUrl ? (
+                    <div className="flex flex-wrap gap-2">
+                      <a
+                        href={chartFileUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800"
+                      >
+                        View
+                      </a>
+                      <a
+                        href={chart.downloadUrl ?? chartFileUrl}
+                        download
+                        className="rounded-full border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100"
+                      >
+                        Download
+                      </a>
+                      <button type="button" onClick={handleDelete} className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100">
+                        Delete
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500">
+                      File unavailable
+                    </span>
+                  )}
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-600">
                 {chart.description || "Current official chart for the public website."}
               </div>
 
-              <div className="overflow-hidden rounded-[22px] border border-violet-200 bg-white p-3">
-                {chart.mimeType?.startsWith("image/") ? (
-                  <img src={chart.viewUrl ?? chart.downloadUrl ?? ""} alt="Official organizational chart" className="max-h-[80vh] w-full rounded-xl object-contain shadow-sm" />
-                ) : (
-                  <iframe src={chart.viewUrl ?? chart.downloadUrl ?? ""} title="Official organizational chart" className="h-[75vh] w-full rounded-xl border-0 bg-slate-100" />
-                )}
-              </div>
+              {chartFileUrl ? (
+                <div className="overflow-hidden rounded-[22px] border border-violet-200 bg-white p-3">
+                  {chart.mimeType?.startsWith("image/") ? (
+                    <img src={chartFileUrl} alt="Official organizational chart" className="max-h-[80vh] w-full rounded-xl object-contain shadow-sm" />
+                  ) : (
+                    <iframe src={chartFileUrl} title="Official organizational chart" className="h-[75vh] w-full rounded-xl border-0 bg-slate-100" />
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">
+                  The uploaded chart file is unavailable.
+                </div>
+              )}
             </div>
           ) : (
             <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600">

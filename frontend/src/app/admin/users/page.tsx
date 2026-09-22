@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { createUser, deactivateUser, getAdminUsers, updateUser, type StaffUser } from "@/lib/api/users";
+import { useNotifications } from "@/components/providers/notification-provider";
 
 const emptyForm = {
   email: "",
@@ -19,6 +20,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const { showSuccess, showError } = useNotifications();
 
   async function loadUsers() {
     try {
@@ -43,9 +45,12 @@ export default function AdminUsersPage() {
     try {
       await createUser(form);
       setForm(emptyForm);
+      showSuccess("Staff user created.", "Saved");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create user.");
+      const message = err instanceof Error ? err.message : "Failed to create user.";
+      setError(message);
+      showError(message, "Unable to create user");
     } finally {
       setIsSubmitting(false);
     }
@@ -54,18 +59,26 @@ export default function AdminUsersPage() {
   async function handleToggleStatus(user: StaffUser) {
     try {
       await updateUser(user.id, { isActive: !user.isActive });
+      showSuccess(`User ${user.isActive ? "disabled" : "enabled"}.`, "Status updated");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to update user status.");
+      const message = err instanceof Error ? err.message : "Unable to update user status.";
+      setError(message);
+      showError(message, "Unable to update status");
     }
   }
 
   async function handleDeactivate(user: StaffUser) {
+    if (!window.confirm(`Deactivate ${user.fullName}? This action cannot be undone here.`)) return;
+
     try {
       await deactivateUser(user.id);
+      showSuccess("Staff user deactivated.", "Deactivated");
       await loadUsers();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to deactivate user.");
+      const message = err instanceof Error ? err.message : "Unable to deactivate user.";
+      setError(message);
+      showError(message, "Unable to deactivate user");
     }
   }
 
@@ -76,6 +89,7 @@ export default function AdminUsersPage() {
           <label className="block text-sm font-medium text-slate-700">
             Full name
             <input
+              autoComplete="name"
               value={form.fullName}
               onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -87,6 +101,7 @@ export default function AdminUsersPage() {
             Email
             <input
               type="email"
+              autoComplete="email"
               value={form.email}
               onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -110,6 +125,7 @@ export default function AdminUsersPage() {
             Password
             <input
               type="password"
+              autoComplete="new-password"
               value={form.password}
               onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -119,7 +135,7 @@ export default function AdminUsersPage() {
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         ) : null}
@@ -135,8 +151,8 @@ export default function AdminUsersPage() {
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Name</th>

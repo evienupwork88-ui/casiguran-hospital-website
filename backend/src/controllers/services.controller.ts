@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import { AppError } from "../utils/AppError";
-import { createService, listActiveServices, listAllServices } from "../services/services.service";
+import { createService, deleteService, listActiveServices, listAllServices, updateService } from "../services/services.service";
 import type { CreateServiceInput } from "../validation/services.schema";
 
 export async function listPublicServices(_req: Request, res: Response) {
@@ -22,4 +22,16 @@ export async function createAdminService(req: Request, res: Response) {
 
   const service = await createService(input);
   res.status(201).json({ item: service });
+}
+
+export async function updateAdminService(req: Request, res: Response) {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const service = await updateService(id, req.body);
+  res.status(200).json({ item: service });
+}
+
+export async function deleteAdminService(req: Request, res: Response) {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  await deleteService(id);
+  res.status(200).json({ ok: true, message: "Service deleted successfully." });
 }

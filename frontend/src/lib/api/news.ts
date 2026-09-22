@@ -12,13 +12,17 @@ export type NewsItem = {
   updatedAt: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(data?.error?.message ?? "Request failed");
+    const error = new Error(data?.error?.message ?? "Request failed") as Error & {
+      status?: number;
+    };
+    error.status = response.status;
+    throw error;
   }
 
   return data as T;
@@ -32,6 +36,16 @@ export async function getPublicNews(): Promise<NewsItem[]> {
 
   const data = await parseJson<{ items: NewsItem[] }>(response);
   return data.items;
+}
+
+export async function getPublicNewsBySlug(slug: string): Promise<NewsItem> {
+  const response = await fetch(`${API_BASE_URL}/api/public/news/${encodeURIComponent(slug)}`, {
+    method: "GET",
+    cache: "no-store",
+  });
+
+  const data = await parseJson<{ item: NewsItem }>(response);
+  return data.item;
 }
 
 export async function getAdminNews(): Promise<NewsItem[]> {
@@ -75,4 +89,22 @@ export async function createNews(input: {
 
   const data = await parseJson<{ item: NewsItem }>(response);
   return data.item;
+}
+
+function csrfHeaders() {
+  const csrfToken = document.cookie.split("; ").find((cookie) => cookie.startsWith("cdh_csrf="));
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (csrfToken) headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+  return headers;
+}
+
+export async function updateNews(id: string, input: Partial<Parameters<typeof createNews>[0]>): Promise<NewsItem> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/news/${id}`, { method: "PUT", credentials: "include", headers: csrfHeaders(), body: JSON.stringify(input) });
+  const data = await parseJson<{ item: NewsItem }>(response);
+  return data.item;
+}
+
+export async function deleteNews(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/news/${id}`, { method: "DELETE", credentials: "include", headers: csrfHeaders() });
+  await parseJson<{ ok: boolean }>(response);
 }

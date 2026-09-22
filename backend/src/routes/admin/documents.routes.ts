@@ -8,6 +8,7 @@ import {
   uploadAdminDocument,
 } from "../../controllers/documents.controller";
 import { requireAuth } from "../../middleware/requireAuth";
+import { requireCsrf } from "../../middleware/requireCsrf";
 import { requireRole } from "../../middleware/requireRole";
 import { validateBody } from "../../middleware/validate";
 import { asyncHandler } from "../../utils/asyncHandler";
@@ -24,9 +25,9 @@ const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
 router.get("/", asyncHandler(listAdminDocuments));
-router.post("/", upload.single("file"), asyncHandler(uploadAdminDocument));
-router.post("/legacy", validateBody(createDocumentSchema), asyncHandler(createAdminDocument));
-router.put("/:id", validateBody(updateDocumentSchema), asyncHandler(updateAdminDocument));
-router.delete("/:id", asyncHandler(deleteAdminDocument));
+router.post("/", requireCsrf, upload.single("file"), asyncHandler(uploadAdminDocument));
+router.post("/legacy", requireCsrf, validateBody(createDocumentSchema), asyncHandler(createAdminDocument));
+router.put("/:id", requireCsrf, validateBody(updateDocumentSchema), asyncHandler(updateAdminDocument));
+router.delete("/:id", requireRole("admin"), requireCsrf, asyncHandler(deleteAdminDocument));
 
 export default router;

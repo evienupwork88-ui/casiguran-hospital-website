@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { createEvent, getAdminEvents, type EventItem } from "@/lib/api/events";
+import { createEvent, deleteEvent, getAdminEvents, updateEvent, type EventItem } from "@/lib/api/events";
+import { useNotifications } from "@/components/providers/notification-provider";
+import { toDateTimeLocalValue, toIsoDateTime } from "@/lib/date-time";
 
 const emptyForm = {
   title: "",
@@ -21,6 +23,8 @@ export default function AdminEventsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   async function loadItems() {
     try {
@@ -43,13 +47,46 @@ export default function AdminEventsPage() {
     setIsSubmitting(true);
 
     try {
-      await createEvent(form);
+      const payload = {
+        ...form,
+        startAt: toIsoDateTime(form.startAt),
+        endAt: form.endAt ? toIsoDateTime(form.endAt) : "",
+      };
+
+      if (editingId) {
+        await updateEvent(editingId, payload);
+        showSuccess("Event updated.", "Saved");
+      } else {
+        await createEvent(form);
+        showSuccess("Event created.", "Saved");
+      }
       setForm(emptyForm);
+      setEditingId(null);
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create event.");
+      const message = err instanceof Error ? err.message : "Unable to save event.";
+      setError(message);
+      showError(message, "Unable to save event");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function beginEdit(item: EventItem) {
+    setEditingId(item.id);
+    setForm({ title: item.title, description: item.description ?? "", location: item.location ?? "", startAt: toDateTimeLocalValue(item.startAt), endAt: toDateTimeLocalValue(item.endAt), coverImageUrl: item.coverImageUrl ?? "", status: item.status });
+    setError("");
+  }
+
+  async function handleDelete(item: EventItem) {
+    if (!window.confirm(`Delete "${item.title}"?`)) return;
+    try {
+      await deleteEvent(item.id);
+      if (editingId === item.id) { setEditingId(null); setForm(emptyForm); }
+      showSuccess("Event deleted.", "Deleted");
+      await loadItems();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Unable to delete event.", "Delete failed");
     }
   }
 
@@ -130,7 +167,7 @@ export default function AdminEventsPage() {
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         ) : null}
@@ -141,28 +178,29 @@ export default function AdminEventsPage() {
             disabled={isSubmitting}
             className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
-            {isSubmitting ? "Saving..." : "Save event"}
+            {isSubmitting ? "Saving..." : editingId ? "Update event" : "Save event"}
           </button>
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Title</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Location</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">Loading events...</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">Loading events...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">No events yet.</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">No events yet.</td>
               </tr>
             ) : (
               items.map((item) => (
@@ -173,6 +211,10 @@ export default function AdminEventsPage() {
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       {item.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm">
+                    <button type="button" onClick={() => beginEdit(item)} className="font-semibold text-violet-700 hover:text-violet-900">Edit</button>
+                    <button type="button" onClick={() => handleDelete(item)} className="ml-4 font-semibold text-red-700 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
               ))

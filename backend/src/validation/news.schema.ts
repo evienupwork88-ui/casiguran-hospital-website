@@ -15,3 +15,5 @@ export const createNewsSchema = z.object({
 });
 
 export type CreateNewsInput = z.infer<typeof createNewsSchema>;
+export const updateNewsSchema = createNewsSchema.partial();
+export type UpdateNewsInput = z.infer<typeof updateNewsSchema>;

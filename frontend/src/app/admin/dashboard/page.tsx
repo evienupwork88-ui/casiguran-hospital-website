@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getMe, logout, type AuthUser } from "@/lib/api/auth";
+import { useNotifications } from "@/components/providers/notification-provider";
+import { ApiRequestError, getMe, logout, type AuthUser } from "@/lib/api/auth";
 import { getAdminAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
 import { getAdminDocuments, type DocumentItem } from "@/lib/api/documents";
 import { getAdminEvents, type EventItem } from "@/lib/api/events";
@@ -35,14 +36,21 @@ export default function AdminDashboardPage() {
   const [stats, setStats] = useState<DashboardStat[]>([]);
   const [recentItems, setRecentItems] = useState<RecentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userError, setUserError] = useState("");
+  const { showSuccess, showError } = useNotifications();
 
   useEffect(() => {
     async function loadUser() {
       try {
         const currentUser = await getMe();
         setUser(currentUser);
-      } catch {
-        router.replace("/admin/login");
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/admin/login");
+          return;
+        }
+
+        setUserError("Unable to verify the admin session. Please check the backend connection and try again.");
       }
     }
 
@@ -50,6 +58,8 @@ export default function AdminDashboardPage() {
   }, [router]);
 
   useEffect(() => {
+    if (!user) return;
+
     async function loadDashboardData() {
       try {
         const [news, announcements, events, services, documents, pages] = await Promise.all([
@@ -121,7 +131,12 @@ export default function AdminDashboardPage() {
 
         setStats(nextStats);
         setRecentItems(combined);
-      } catch {
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 401) {
+          router.replace("/admin/login");
+          return;
+        }
+
         setStats([]);
         setRecentItems([]);
       } finally {
@@ -130,17 +145,18 @@ export default function AdminDashboardPage() {
     }
 
     loadDashboardData();
-  }, []);
+  }, [router, user]);
 
   async function handleLogout() {
     setIsLoggingOut(true);
 
     try {
       await logout();
+      showSuccess("You have been logged out.", "Logged out");
       router.push("/admin/login");
       router.refresh();
     } catch {
-      router.push("/admin/login");
+      showError("Unable to log out cleanly. Please try again.", "Logout failed");
     } finally {
       setIsLoggingOut(false);
     }
@@ -149,19 +165,10 @@ export default function AdminDashboardPage() {
   if (!user) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700">
-        Loading dashboard...
+        {userError || "Loading dashboard..."}
       </div>
     );
   }
-
-  const cardStyles: Record<string, string> = {
-    violet: "border-violet-200 bg-violet-50/60",
-    amber: "border-amber-200 bg-amber-50/60",
-    sky: "border-sky-200 bg-sky-50/60",
-    emerald: "border-emerald-200 bg-emerald-50/60",
-    slate: "border-slate-200 bg-slate-50/80",
-    purple: "border-purple-200 bg-purple-50/80",
-  };
 
   return (
     <AdminShell title="Dashboard" user={user} onLogout={handleLogout} isLoggingOut={isLoggingOut}>
@@ -172,13 +179,13 @@ export default function AdminDashboardPage() {
               className="absolute inset-0 bg-cover bg-center"
               style={{ backgroundImage: "url('/cdh-hero.jpg')" }}
             />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(27,17,44,0.82),rgba(46,16,101,0.58),rgba(46,16,101,0.08))]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(24,15,55,0.95)_0%,rgba(46,16,101,0.78)_48%,rgba(46,16,101,0.28)_100%)]" />
 
             <div className="relative flex min-h-[220px] items-center justify-between gap-4 p-6 md:p-8">
               <div className="max-w-lg">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-violet-100">Casiguran District Hospital</p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.05em] text-white md:text-4xl">Hospital administration dashboard</h2>
-                <p className="mt-3 max-w-md text-sm text-violet-50 md:text-base">
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">Casiguran District Hospital</p>
+                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white md:text-4xl">Hospital administration dashboard</h2>
+                <p className="mt-3 max-w-md text-sm leading-6 text-white md:text-base">
                   Maintain the hospital website, public updates, services, reports, and institutional pages from one place.
                 </p>
               </div>
@@ -210,13 +217,13 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               stats.map((stat) => (
-                <div key={stat.label} className={`rounded-[24px] border p-5 shadow-sm ${cardStyles[stat.accent]}`}>
+                <div key={stat.label} className="border border-violet-200 bg-white p-5 shadow-[0_10px_24px_rgba(37,27,88,0.04)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">{stat.label}</p>
                       <p className="mt-4 text-3xl font-semibold tracking-[-0.06em] text-slate-900">{stat.count}</p>
                     </div>
-                    <span className="rounded-full bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">
+                    <span className="border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">
                       {stat.meta}
                     </span>
                   </div>

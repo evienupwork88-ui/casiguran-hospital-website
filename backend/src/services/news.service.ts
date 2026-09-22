@@ -1,6 +1,6 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
-import type { CreateNewsInput } from "../validation/news.schema";
+import type { CreateNewsInput, UpdateNewsInput } from "../validation/news.schema";
 
 export interface NewsRecord {
   id: string;
@@ -101,4 +101,26 @@ export async function createNews(input: CreateNewsInput, authorId: string): Prom
   }
 
   return mapNewsRow(data);
+}
+
+export async function updateNews(id: string, input: UpdateNewsInput): Promise<NewsRecord> {
+  const payload: Record<string, unknown> = {};
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.slug !== undefined) payload.slug = input.slug;
+  if (input.excerpt !== undefined) payload.excerpt = input.excerpt.trim() || null;
+  if (input.body !== undefined) payload.body = input.body;
+  if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.publishedAt !== undefined) payload.published_at = input.publishedAt || null;
+  const { data, error } = await supabase.from("news_posts").update(payload).eq("id", id)
+    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at").single();
+  if (error) throw new Error(`Failed to update news article: ${error.message}`);
+  if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
+  return mapNewsRow(data);
+}
+
+export async function deleteNews(id: string): Promise<void> {
+  const { data, error } = await supabase.from("news_posts").delete().eq("id", id).select("id").single();
+  if (error) throw new Error(`Failed to delete news article: ${error.message}`);
+  if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
 }

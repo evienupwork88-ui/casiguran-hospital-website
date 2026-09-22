@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { createService, getAdminServices, type ServiceItem } from "@/lib/api/services";
+import { createService, deleteService, getAdminServices, updateService, type ServiceItem } from "@/lib/api/services";
+import { useNotifications } from "@/components/providers/notification-provider";
 
 const emptyForm = {
   name: "",
@@ -20,6 +21,8 @@ export default function AdminServicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   async function loadItems() {
     try {
@@ -42,13 +45,40 @@ export default function AdminServicesPage() {
     setIsSubmitting(true);
 
     try {
-      await createService(form);
+      if (editingId) {
+        await updateService(editingId, form);
+        showSuccess("Service updated.", "Saved");
+      } else {
+        await createService(form);
+        showSuccess("Service created.", "Saved");
+      }
       setForm(emptyForm);
+      setEditingId(null);
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create service.");
+      const message = err instanceof Error ? err.message : "Unable to save service.";
+      setError(message);
+      showError(message, "Unable to save service");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function beginEdit(item: ServiceItem) {
+    setEditingId(item.id);
+    setForm({ name: item.name, description: item.description, department: item.department ?? "", iconOrImageUrl: item.iconOrImageUrl ?? "", displayOrder: item.displayOrder, isActive: item.isActive });
+    setError("");
+  }
+
+  async function handleDelete(item: ServiceItem) {
+    if (!window.confirm(`Delete "${item.name}"?`)) return;
+    try {
+      await deleteService(item.id);
+      if (editingId === item.id) { setEditingId(null); setForm(emptyForm); }
+      showSuccess("Service deleted.", "Deleted");
+      await loadItems();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Unable to delete service.", "Delete failed");
     }
   }
 
@@ -112,7 +142,7 @@ export default function AdminServicesPage() {
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         ) : null}
@@ -123,28 +153,29 @@ export default function AdminServicesPage() {
             disabled={isSubmitting}
             className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
-            {isSubmitting ? "Saving..." : "Save service"}
+            {isSubmitting ? "Saving..." : editingId ? "Update service" : "Save service"}
           </button>
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Name</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Department</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">Loading services...</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">Loading services...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">No services yet.</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">No services yet.</td>
               </tr>
             ) : (
               items.map((item) => (
@@ -155,6 +186,10 @@ export default function AdminServicesPage() {
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       {item.isActive ? "Active" : "Inactive"}
                     </span>
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm">
+                    <button type="button" onClick={() => beginEdit(item)} className="font-semibold text-violet-700 hover:text-violet-900">Edit</button>
+                    <button type="button" onClick={() => handleDelete(item)} className="ml-4 font-semibold text-red-700 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
               ))

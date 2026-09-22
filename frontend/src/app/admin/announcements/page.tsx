@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { createAnnouncement, getAdminAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
+import { createAnnouncement, deleteAnnouncement, getAdminAnnouncements, updateAnnouncement, type AnnouncementItem } from "@/lib/api/announcements";
+import { useNotifications } from "@/components/providers/notification-provider";
+import { toDateTimeLocalValue, toIsoDateTime } from "@/lib/date-time";
 
 const emptyForm = {
   title: "",
@@ -20,6 +22,8 @@ export default function AdminAnnouncementsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   async function loadItems() {
     try {
@@ -42,13 +46,46 @@ export default function AdminAnnouncementsPage() {
     setIsSubmitting(true);
 
     try {
-      await createAnnouncement(form);
+      const payload = {
+        ...form,
+        publishAt: form.publishAt ? toIsoDateTime(form.publishAt) : "",
+        expiresAt: form.expiresAt ? toIsoDateTime(form.expiresAt) : "",
+      };
+
+      if (editingId) {
+        await updateAnnouncement(editingId, payload);
+        showSuccess("Announcement updated.", "Saved");
+      } else {
+        await createAnnouncement(form);
+        showSuccess("Announcement created.", "Saved");
+      }
       setForm(emptyForm);
+      setEditingId(null);
       await loadItems();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create announcement.");
+      const message = err instanceof Error ? err.message : "Unable to save announcement.";
+      setError(message);
+      showError(message, "Unable to save announcement");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function beginEdit(item: AnnouncementItem) {
+    setEditingId(item.id);
+    setForm({ title: item.title, body: item.body, priority: item.priority, status: item.status, publishAt: toDateTimeLocalValue(item.publishAt), expiresAt: toDateTimeLocalValue(item.expiresAt) });
+    setError("");
+  }
+
+  async function handleDelete(item: AnnouncementItem) {
+    if (!window.confirm(`Delete "${item.title}"?`)) return;
+    try {
+      await deleteAnnouncement(item.id);
+      if (editingId === item.id) { setEditingId(null); setForm(emptyForm); }
+      showSuccess("Announcement deleted.", "Deleted");
+      await loadItems();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Unable to delete announcement.", "Delete failed");
     }
   }
 
@@ -122,7 +159,7 @@ export default function AdminAnnouncementsPage() {
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         ) : null}
@@ -133,28 +170,29 @@ export default function AdminAnnouncementsPage() {
             disabled={isSubmitting}
             className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
-            {isSubmitting ? "Saving..." : "Save announcement"}
+            {isSubmitting ? "Saving..." : editingId ? "Update announcement" : "Save announcement"}
           </button>
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Title</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Priority</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">Loading announcements...</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">Loading announcements...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">No announcements yet.</td>
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">No announcements yet.</td>
               </tr>
             ) : (
               items.map((item) => (
@@ -169,6 +207,10 @@ export default function AdminAnnouncementsPage() {
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
                       {item.status}
                     </span>
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm">
+                    <button type="button" onClick={() => beginEdit(item)} className="font-semibold text-violet-700 hover:text-violet-900">Edit</button>
+                    <button type="button" onClick={() => handleDelete(item)} className="ml-4 font-semibold text-red-700 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
               ))

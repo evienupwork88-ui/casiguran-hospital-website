@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getAdminPages, updatePage, type PageItem } from "@/lib/api/pages";
+import { useNotifications } from "@/components/providers/notification-provider";
 
 const pageConfig = [
   { slug: "about", label: "About the Hospital" },
   { slug: "hospital-history", label: "Hospital History" },
-  { slug: "vision-mission", label: "Vision, Mission & Core Values" },
+  { slug: "vision-mission", label: "Vision & Mission" },
+  { slug: "core-values", label: "Core Values" },
 ];
 
 export default function AdminPagesPage() {
@@ -18,6 +20,7 @@ export default function AdminPagesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState("");
+  const { showSuccess, showError } = useNotifications();
 
   useEffect(() => {
     async function loadPages() {
@@ -47,7 +50,8 @@ export default function AdminPagesPage() {
     }
   }, [selectedSlug, pages]);
 
-  async function handleSave() {
+  async function handleSave(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
     setError("");
     setIsSaving(true);
 
@@ -57,8 +61,11 @@ export default function AdminPagesPage() {
         current.map((page) => (page.slug === saved.slug ? saved : page))
       );
       setForm({ title: saved.title, body: saved.body });
+      showSuccess("Page content updated.", "Saved");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save page.");
+      const message = err instanceof Error ? err.message : "Failed to save page.";
+      setError(message);
+      showError(message, "Unable to save page");
     } finally {
       setIsSaving(false);
     }
@@ -107,10 +114,11 @@ export default function AdminPagesPage() {
                   <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-900">{selectedPage.title}</h3>
                 </div>
 
-                <div className="space-y-5">
+                <form onSubmit={handleSave} className="space-y-5">
                   <label className="block text-sm font-medium text-slate-700">
                     Page title
                     <input
+                      required
                       value={form.title}
                       onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -120,29 +128,28 @@ export default function AdminPagesPage() {
                   <label className="block text-sm font-medium text-slate-700">
                     Page content
                     <textarea
+                      required
                       value={form.body}
                       onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))}
                       className="mt-2 min-h-[220px] w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
                     />
                   </label>
-                </div>
+                  {error ? (
+                    <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                      {error}
+                    </div>
+                  ) : null}
 
-                {error ? (
-                  <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                    {error}
+                  <div className="mt-6 flex justify-end">
+                    <button
+                      type="submit"
+                      disabled={isSaving}
+                      className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
+                    >
+                      {isSaving ? "Saving..." : "Save changes"}
+                    </button>
                   </div>
-                ) : null}
-
-                <div className="mt-6 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
-                  >
-                    {isSaving ? "Saving..." : "Save changes"}
-                  </button>
-                </div>
+                </form>
               </>
             ) : (
               <p className="text-slate-500">No page content available.</p>

@@ -1,6 +1,6 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
-import type { CreateAnnouncementInput } from "../validation/announcements.schema";
+import type { CreateAnnouncementInput, UpdateAnnouncementInput } from "../validation/announcements.schema";
 
 export interface AnnouncementRecord {
   id: string;
@@ -31,10 +31,13 @@ function mapAnnouncementRow(row: any): AnnouncementRecord {
 }
 
 export async function listPublishedAnnouncements(): Promise<AnnouncementRecord[]> {
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("announcements")
     .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .eq("status", "published")
+    .or(`publish_at.is.null,publish_at.lte.${now}`)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .order("publish_at", { ascending: false, nullsFirst: false });
 
   if (error) {
@@ -45,11 +48,14 @@ export async function listPublishedAnnouncements(): Promise<AnnouncementRecord[]
 }
 
 export async function getPublishedAnnouncementById(id: string): Promise<AnnouncementRecord | null> {
+  const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("announcements")
     .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .eq("id", id)
     .eq("status", "published")
+    .or(`publish_at.is.null,publish_at.lte.${now}`)
+    .or(`expires_at.is.null,expires_at.gt.${now}`)
     .maybeSingle();
 
   if (error) {
@@ -101,4 +107,25 @@ export async function createAnnouncement(
   }
 
   return mapAnnouncementRow(data);
+}
+
+export async function updateAnnouncement(id: string, input: UpdateAnnouncementInput): Promise<AnnouncementRecord> {
+  const payload: Record<string, unknown> = {};
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.body !== undefined) payload.body = input.body;
+  if (input.priority !== undefined) payload.priority = input.priority;
+  if (input.status !== undefined) payload.status = input.status;
+  if (input.publishAt !== undefined) payload.publish_at = input.publishAt || null;
+  if (input.expiresAt !== undefined) payload.expires_at = input.expiresAt || null;
+  const { data, error } = await supabase.from("announcements").update(payload).eq("id", id)
+    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at").single();
+  if (error) throw new Error(`Failed to update announcement: ${error.message}`);
+  if (!data) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
+  return mapAnnouncementRow(data);
+}
+
+export async function deleteAnnouncement(id: string): Promise<void> {
+  const { data, error } = await supabase.from("announcements").delete().eq("id", id).select("id").single();
+  if (error) throw new Error(`Failed to delete announcement: ${error.message}`);
+  if (!data) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
 }

@@ -3,18 +3,19 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, ArrowRight, Building2, CalendarDays, FileText, HeartPulse, Mail, MapPin, Megaphone, Menu, Newspaper, Phone, Settings, X } from "lucide-react";
+import { getPublicAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
+import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
+import { getPublicEvents, type EventItem } from "@/lib/api/events";
+import { getPublicNews, type NewsItem } from "@/lib/api/news";
+import { getPublicPage, type PageItem } from "@/lib/api/pages";
 import { getPublicServices, type ServiceItem } from "@/lib/api/services";
 import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
+import { publicNavItems } from "@/components/public/site-shell";
+import { formatOfficeHours } from "@/lib/format-office-hours";
 
-const navItems = [
-  { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/services", label: "Services" },
-  { href: "/news", label: "News" },
-  { href: "/contact", label: "Contact" },
-  { href: "/admin/dashboard", label: "Admin Console" },
-];
+const navItems = publicNavItems;
 
 const footerQuickLinks = [
   { href: "/", label: "Home" },
@@ -26,22 +27,58 @@ const footerQuickLinks = [
   { href: "/contact", label: "Contact" },
 ];
 
+function formatDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function formatEventDate(dateStr: string | null | undefined): { month: string; day: string } {
+  if (!dateStr) return { month: "EVENT", day: "TBD" };
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return { month: "EVENT", day: "TBD" };
+  return {
+    month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
+    day: String(date.getDate()),
+  };
+}
+
 export default function Home() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [documents, setDocuments] = useState<DocumentItem[]>([]);
+  const [aboutPage, setAboutPage] = useState<PageItem | null>(null);
+  const [homeError, setHomeError] = useState(false);
 
   useEffect(() => {
     async function loadHomeData() {
-      try {
-        const [serviceData, settingsData] = await Promise.all([getPublicServices(), getPublicSettings()]);
-        setServices(serviceData);
-        setSettings(settingsData);
-      } catch {
-        setServices([]);
-        setSettings(null);
-      }
+      const results = await Promise.allSettled([
+        getPublicServices(),
+        getPublicSettings(),
+        getPublicAnnouncements(),
+        getPublicNews(),
+        getPublicEvents(),
+        getPublicDocuments(),
+        getPublicPage("about"),
+      ]);
+
+      const [servicesResult, settingsResult, announcementsResult, newsResult, eventsResult, documentsResult, aboutPageResult] = results;
+      setHomeError(results.some((result) => result.status === "rejected"));
+      if (servicesResult.status === "fulfilled") setServices(servicesResult.value);
+      if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
+      if (announcementsResult.status === "fulfilled") setAnnouncements(announcementsResult.value);
+      if (newsResult.status === "fulfilled") setNews(newsResult.value);
+      if (eventsResult.status === "fulfilled") setEvents(eventsResult.value);
+      if (documentsResult.status === "fulfilled") setDocuments(documentsResult.value);
+      if (aboutPageResult.status === "fulfilled") setAboutPage(aboutPageResult.value);
     }
 
     loadHomeData();
@@ -51,98 +88,68 @@ export default function Home() {
     setMobileOpen(false);
   }, [pathname]);
 
-  const featuredServices = services.length > 0 ? services.slice(0, 3) : [
-    { id: "1", name: "Emergency Care", description: "[Official emergency service description to be provided]" },
-    { id: "2", name: "Outpatient Services", description: "[Official consultation and follow-up service description to be provided]" },
-    { id: "3", name: "Community Health Programs", description: "[Official community health support description to be provided]" },
-  ];
+  useEffect(() => {
+    if (!mobileOpen) {
+      mobileMenuTriggerRef.current?.focus();
+      return;
+    }
 
-  const featuredAnnouncements = [
-    {
-      id: "announcement-1",
-      title: "[Official hospital announcement]",
-      date: "[Date to be provided]",
-      summary: "[Official announcement summary to be provided]",
-    },
-    {
-      id: "announcement-2",
-      title: "[Official public update]",
-      date: "[Date to be provided]",
-      summary: "[Official update summary to be provided]",
-    },
-    {
-      id: "announcement-3",
-      title: "[Official health advisory]",
-      date: "[Date to be provided]",
-      summary: "[Official advisory summary to be provided]",
-    },
-  ];
+    const menu = mobileMenuRef.current;
+    const focusable = menu?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [];
+    focusable[0]?.focus();
 
-  const latestNews = [
-    {
-      id: "news-1",
-      title: "[Official hospital news title]",
-      date: "[Date to be provided]",
-      summary: "[Official news summary to be provided]",
-    },
-    {
-      id: "news-2",
-      title: "[Official hospital feature]",
-      date: "[Date to be provided]",
-      summary: "[Official feature summary to be provided]",
-    },
-    {
-      id: "news-3",
-      title: "[Official community update]",
-      date: "[Date to be provided]",
-      summary: "[Official community update summary to be provided]",
-    },
-  ];
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        return;
+      }
 
-  const upcomingEvents = [
-    {
-      id: "event-1",
-      title: "[Official event title]",
-      date: "[Date]",
-      location: "[Location]",
-    },
-    {
-      id: "event-2",
-      title: "[Official event title]",
-      date: "[Date]",
-      location: "[Location]",
-    },
-    {
-      id: "event-3",
-      title: "[Official event title]",
-      date: "[Date]",
-      location: "[Location]",
-    },
-  ];
+      if (event.key !== "Tab" || focusable.length === 0) return;
 
-  const resourceLinks = [
-    "[Official Annual Report]",
-    "[Official Hospital Document]",
-    "[Official Public Report]",
-  ];
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
+  const featuredAnnouncements = announcements.slice(0, 3);
+  const featuredServices = services.slice(0, 3);
+  const featuredNews = news.slice(0, 3);
+  const featuredEvents = events.slice(0, 3);
+  const featuredDocuments = documents.filter((doc) => doc.status === "published").slice(0, 3);
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.12),_transparent_20%),linear-gradient(180deg,#faf7ff_0%,#fff_34%,#f8fafc_100%)] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-violet-200/80 bg-white/85 backdrop-blur-xl shadow-[0_14px_32px_rgba(76,29,149,0.06)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
-          <div className="flex min-w-0 items-center gap-3 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 to-white px-3 py-2 shadow-[0_8px_20px_rgba(124,58,237,0.08)] transition hover:border-violet-300 sm:px-4">
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-violet-200 bg-white sm:h-11 sm:w-11">
-              <Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill className="object-cover" />
+    <main className="public-theme min-h-screen bg-[#f8f9fc] text-slate-900">
+      <header className="relative sticky top-0 z-30 overflow-hidden border-b border-slate-200/90 bg-white/95 shadow-[0_8px_24px_rgba(37,27,88,0.06)] backdrop-blur-xl">
+        <HeartPulse aria-hidden="true" className="pointer-events-none absolute -right-2 top-3 h-20 w-28 text-violet-700 opacity-10" strokeWidth={1.2} />
+        <div className="relative mx-auto flex min-h-[84px] max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:min-h-[116px]">
+          <Link href="/" className="flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80">
+            <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-violet-200 bg-violet-50 shadow-sm lg:h-20 lg:w-20">
+              <Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill sizes="80px" className="object-cover" />
             </div>
-            <div className="min-w-0 text-left leading-tight">
-              <p className="truncate text-[8.5px] font-semibold uppercase tracking-[0.22em] text-violet-700 sm:text-[9.5px]">
-                Casiguran District Hospital PGA
+            <div className="min-w-0 border-l border-slate-200 pl-4 text-left leading-tight">
+              <p className="max-w-[250px] text-lg font-bold leading-tight tracking-[-0.02em] text-violet-950 sm:text-xl lg:text-2xl">
+                <span className="block">Casiguran District</span>
+                <span className="block">Hospital PGA</span>
               </p>
-              <h1 className="mt-1 text-sm font-semibold text-slate-900 sm:text-[0.95rem]">Official portal</h1>
+              <p className="mt-2 text-sm font-medium text-violet-500 lg:text-base">Official portal</p>
             </div>
-          </div>
+          </Link>
 
-          <nav className="hidden items-center gap-2 text-sm font-medium md:flex">
+          <nav className="hidden items-center gap-1 text-[0.82rem] font-medium text-slate-600 lg:flex">
             {navItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
               const isAdmin = item.href.startsWith("/admin");
@@ -151,17 +158,20 @@ export default function Home() {
                 <Link
                   key={item.href}
                   href={item.href}
+                  target={isAdmin ? "_blank" : undefined}
+                  rel={isAdmin ? "noopener noreferrer" : undefined}
                   className={[
-                    "rounded-full px-3.5 py-2 transition-all duration-200",
+                    "inline-flex items-center gap-2 px-3 py-2 transition-colors duration-200",
                     isActive
                       ? isAdmin
-                        ? "border border-violet-200 bg-violet-100 text-violet-900 shadow-sm"
-                        : "bg-violet-100 text-violet-900 shadow-sm"
+                        ? "text-violet-700"
+                        : "text-violet-700"
                       : isAdmin
-                        ? "border border-violet-200 bg-gradient-to-r from-violet-700 to-violet-800 text-violet-50 shadow-[0_12px_26px_rgba(124,58,237,0.26)] hover:from-violet-800 hover:to-violet-900"
-                        : "text-violet-700 hover:bg-violet-50 hover:text-violet-900",
+                        ? "ml-2 rounded-full bg-violet-600 px-5 text-white shadow-[0_8px_18px_rgba(124,58,237,0.25)] hover:bg-violet-700"
+                        : "hover:text-violet-700",
                   ].join(" ")}
                 >
+                  {isAdmin ? <Settings size={16} aria-hidden="true" /> : null}
                   {item.label}
                 </Link>
               );
@@ -170,23 +180,21 @@ export default function Home() {
 
           <button
             type="button"
+            ref={mobileMenuTriggerRef}
             aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={mobileOpen}
+            aria-controls="home-mobile-navigation"
             onClick={() => setMobileOpen((open) => !open)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-violet-700 transition hover:bg-violet-100 md:hidden"
+            className="inline-flex h-10 w-10 items-center justify-center border border-slate-200 bg-white text-violet-700 transition hover:bg-violet-50 lg:hidden"
           >
             <span className="sr-only">Toggle menu</span>
-            <div className="flex w-4.5 flex-col items-center gap-1.25">
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "translate-y-2 rotate-45" : ""}`} />
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "opacity-0" : "opacity-100"}`} />
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`} />
-            </div>
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
 
         {mobileOpen && (
-          <div className="border-t border-violet-200 bg-white/95 px-4 py-3 shadow-[0_12px_24px_rgba(91,33,182,0.08)] md:hidden">
-            <nav className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto text-sm font-medium">
+          <div id="home-mobile-navigation" ref={mobileMenuRef} className="border-t border-slate-200 bg-white px-5 py-4 shadow-lg lg:hidden">
+            <nav aria-label="Mobile navigation" className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto text-sm font-medium">
               {navItems.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
                 const isAdmin = item.href.startsWith("/admin");
@@ -195,19 +203,21 @@ export default function Home() {
                   <Link
                     key={item.href}
                     href={item.href}
+                    target={isAdmin ? "_blank" : undefined}
+                    rel={isAdmin ? "noopener noreferrer" : undefined}
                     onClick={() => setMobileOpen(false)}
                     className={[
-                      "rounded-xl px-3 py-3 transition-all duration-200",
+                      "border-b border-slate-100 px-2 py-3 transition-colors",
                       isActive
                         ? isAdmin
-                          ? "bg-violet-700 text-white"
-                          : "bg-violet-100 text-violet-900"
+                          ? "text-violet-700"
+                          : "text-slate-700"
                         : isAdmin
-                          ? "border border-violet-200 bg-violet-700 text-violet-50"
-                          : "text-violet-700 hover:bg-violet-50 hover:text-violet-900",
+                          ? "text-violet-700"
+                          : "hover:text-violet-700",
                     ].join(" ")}
                   >
-                    {item.label}
+                    <span className="inline-flex items-center gap-2">{isAdmin ? <Settings size={16} aria-hidden="true" /> : null}{item.label}</span>
                   </Link>
                 );
               })}
@@ -216,7 +226,13 @@ export default function Home() {
         )}
       </header>
 
-      <section className="relative isolate overflow-hidden border-b border-violet-200 bg-[#f5f2ff]">
+      {homeError ? (
+        <div role="alert" className="border-b border-amber-200 bg-amber-50 px-5 py-3 text-center text-sm text-amber-900 sm:px-8">
+          Some hospital information is temporarily unavailable. Please try again later.
+        </div>
+      ) : null}
+
+      <section className="relative isolate overflow-hidden border-b border-violet-200 bg-[#24164f]">
         <div
           className="absolute inset-0 bg-cover bg-center bg-no-repeat"
           style={{
@@ -224,59 +240,81 @@ export default function Home() {
             backgroundPosition: "center center",
           }}
         />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(245,242,255,0.94)_0%,rgba(245,242,255,0.9)_20%,rgba(245,242,255,0.78)_36%,rgba(245,242,255,0.32)_58%,rgba(255,255,255,0)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(124,58,237,0.18),_transparent_28%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-16 bg-white/90" style={{ clipPath: "ellipse(74% 100% at 50% 100%)" }} />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(24,15,55,0.95)_0%,rgba(38,24,82,0.82)_42%,rgba(38,24,82,0.28)_72%,rgba(38,24,82,0.08)_100%)]" />
 
-        <div className="relative mx-auto max-w-6xl px-4 py-14 sm:px-6 lg:py-20">
-          <div className="relative z-10 max-w-xl py-4 sm:py-8 lg:max-w-[38rem]">
-            <span className="inline-flex items-center rounded-full border border-violet-200 bg-white/80 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-violet-700 shadow-sm backdrop-blur-sm">
+        <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+          <div className="relative z-10 max-w-2xl py-4">
+            <span className="inline-flex items-center border-l-2 border-violet-300 bg-white/10 px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-violet-100 backdrop-blur-sm">
               Hospital information
             </span>
-            <h2 className="mt-5 text-[2.35rem] font-semibold leading-[0.94] tracking-[-0.06em] text-slate-900 sm:text-[3.25rem] lg:text-[4.2rem]">
+            <h1 className="mt-6 max-w-xl text-4xl font-semibold leading-[1.02] tracking-[-0.03em] text-white sm:text-6xl">
               Casiguran District Hospital
-            </h2>
-            <p className="mt-5 max-w-lg text-base leading-7 text-slate-700 sm:text-lg sm:leading-8">
+            </h1>
+            <p className="mt-6 max-w-xl text-base leading-7 text-violet-100 sm:text-lg sm:leading-8">
               Compassionate, accessible, and community-centered care for the people of Casiguran and nearby communities.
             </p>
 
-            <div className="mt-8 flex flex-wrap items-center gap-4">
+            <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/about"
-                className="inline-flex items-center justify-center rounded-full bg-violet-700 px-6 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(109,40,217,0.26)] transition hover:bg-violet-800"
+                className="inline-flex items-center justify-center gap-2 bg-white px-5 py-3 text-sm font-semibold text-violet-900 shadow-lg transition hover:bg-violet-50"
               >
-                About us
+                About us <ArrowRight size={15} />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center justify-center rounded-full border border-violet-200 bg-white/85 px-6 py-3 text-sm font-semibold text-violet-800 shadow-[0_10px_18px_rgba(124,58,237,0.08)] transition hover:border-violet-300 hover:bg-violet-50"
+                className="inline-flex items-center justify-center gap-2 border border-white/35 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/20"
               >
-                Contact hospital
+                Contact hospital <ArrowRight size={15} />
               </Link>
             </div>
           </div>
         </div>
       </section>
 
-      <section id="about" className="mx-auto max-w-6xl px-6 pb-10 pt-8 sm:pt-12">
-        <div className="grid gap-8 rounded-[30px] border border-violet-200 bg-white/90 p-7 shadow-[0_20px_50px_rgba(76,29,149,0.06)] md:grid-cols-[1fr_1.4fr] md:p-9">
+      <section id="about" className="mx-auto max-w-7xl px-5 pb-12 pt-14 sm:px-8 sm:pt-20">
+        <div className="grid gap-10 border-y border-slate-200 py-10 md:grid-cols-[0.8fr_1.2fr] md:py-14">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">About</p>
-            <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-              Trusted care in our local community
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">About the hospital</p>
+            <h3 className="mt-4 max-w-md text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
+              {aboutPage?.title || "Trusted care in our local community"}
             </h3>
+            <Link href="/about" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900">
+              Learn more <ArrowRight size={15} />
+            </Link>
           </div>
-          <p className="text-base leading-8 text-slate-600">
-            [Short hospital description placeholder — to be approved by Dra. and finalized later.]
+          <p className="max-w-2xl text-base leading-8 text-slate-600 sm:text-lg">
+            {aboutPage?.body || "Official hospital profile information will appear here once published."}
           </p>
         </div>
       </section>
 
-      <section id="announcements" className="mx-auto max-w-6xl px-6 pb-12">
-        <div className="mb-6 flex items-end justify-between gap-4">
+      <section className="mx-auto grid max-w-7xl gap-5 px-5 pb-16 sm:px-8 md:grid-cols-[1.35fr_0.65fr]">
+        <div className="relative min-h-[260px] overflow-hidden bg-[#24164f]">
+          <Image src="/cdh-facade.png" alt="Casiguran District Hospital facility" fill className="object-cover opacity-70" />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(36,22,79,0.92),rgba(36,22,79,0.2))]" />
+          <div className="relative flex min-h-[260px] max-w-md flex-col justify-end p-7 text-white sm:p-9">
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-violet-200">Photo highlights</p>
+            <h3 className="mt-3 text-2xl font-semibold">A place prepared for community care</h3>
+            <p className="mt-3 text-sm leading-6 text-violet-100/80">Approved hospital photography can be featured here as it becomes available.</p>
+          </div>
+        </div>
+        <div className="flex min-h-[260px] flex-col justify-between border border-violet-200 bg-white p-7 shadow-[0_16px_36px_rgba(37,27,88,0.06)] sm:p-9">
+          <Building2 className="text-violet-700" size={26} strokeWidth={1.5} />
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Announcements</p>
-            <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">Important updates</h3>
+            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-violet-700">Future gallery space</p>
+            <h3 className="mt-3 text-2xl font-semibold text-slate-950">Facilities, people, and activities</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-600">This visual structure is ready for approved institutional images without inventing people or events.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="announcements" className="border-y border-slate-200 bg-white py-14 sm:py-16">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="mb-8 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Announcements</p>
+            <h3 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Important updates</h3>
           </div>
           <Link href="/announcements" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
             View all →
@@ -284,21 +322,39 @@ export default function Home() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {featuredAnnouncements.map((item) => (
-            <article key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-              <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">{item.date}</p>
-              <h4 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
-              <p className="mt-3 text-base leading-7 text-slate-600">{item.summary}</p>
-            </article>
-          ))}
+          {featuredAnnouncements.length > 0 ? (
+            featuredAnnouncements.map((item) => (
+              <article key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
+                    {formatDate(item.publishAt || item.createdAt)}
+                  </p>
+                  {item.priority === "urgent" ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-red-700">
+                      Urgent
+                    </span>
+                  ) : null}
+                </div>
+                <h4 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
+                <p className="mt-3 text-base leading-7 text-slate-600">{item.body}</p>
+              </article>
+            ))
+          ) : (
+            <div className="border border-dashed border-violet-200 bg-violet-50/50 p-10 text-center text-slate-600 md:col-span-3">
+              <Megaphone className="mx-auto text-violet-500" size={26} strokeWidth={1.5} />
+              <p className="font-semibold text-slate-900">No public announcements at this time</p>
+              <p className="mt-2 text-sm">Official hospital bulletins and advisories will be published here.</p>
+            </div>
+          )}
+        </div>
         </div>
       </section>
 
-      <section id="services" className="mx-auto max-w-6xl px-6 pb-14 pt-2">
+      <section id="services" className="mx-auto max-w-7xl px-5 pb-16 pt-16 sm:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Services</p>
-            <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Services</p>
+            <h3 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">
               Core healthcare services
             </h3>
           </div>
@@ -308,23 +364,37 @@ export default function Home() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {featuredServices.map((service) => (
-            <div key={service.id} className="rounded-[24px] border border-violet-200 bg-white p-5 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-              <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-violet-100 text-lg font-medium text-violet-700">
-                +
+          {featuredServices.length > 0 ? (
+            featuredServices.map((service) => (
+              <div key={service.id} className="rounded-[24px] border border-violet-200 bg-white p-5 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-violet-100 text-lg font-medium text-violet-700">
+                  {service.iconOrImageUrl ? (
+                    <img src={service.iconOrImageUrl} alt="" className="h-full w-full rounded-full object-cover" />
+                  ) : (
+                    "+"
+                  )}
+                </div>
+                <p className="text-lg font-semibold text-slate-900">{service.name}</p>
+                {service.department ? <p className="mt-1 text-sm font-medium text-violet-700">{service.department}</p> : null}
+                <p className="mt-3 text-sm leading-7 text-slate-600">{service.description}</p>
               </div>
-              <p className="text-lg font-semibold text-slate-900">{service.name}</p>
-              <p className="mt-3 text-sm leading-7 text-slate-600">{service.description}</p>
+            ))
+          ) : (
+            <div className="border border-dashed border-violet-200 bg-white p-10 text-center text-sm text-slate-600 md:col-span-3">
+              <HeartPulse className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
+              <p className="font-semibold text-slate-900">No services have been published yet</p>
+              <p className="mt-2">The official service directory will appear here once published.</p>
             </div>
-          ))}
+          )}
         </div>
       </section>
 
-      <section id="news" className="mx-auto max-w-6xl px-6 pb-14">
+      <section id="news" className="border-t border-slate-200 bg-white py-16">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">News</p>
-            <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">Latest updates</h3>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">News</p>
+            <h3 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Latest updates</h3>
           </div>
           <Link href="/news" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
             See more →
@@ -332,22 +402,46 @@ export default function Home() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {latestNews.map((item) => (
-            <article key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-              <div className="h-32 rounded-[18px] bg-[linear-gradient(135deg,#f3e8ff,#e2e8f0)]" />
-              <p className="mt-4 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">{item.date}</p>
-              <h4 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
-              <p className="mt-3 text-base leading-7 text-slate-600">{item.summary}</p>
-            </article>
-          ))}
+          {featuredNews.length > 0 ? (
+            featuredNews.map((item) => (
+              <article key={item.id} className="overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+                <div
+                  className="h-32 bg-[linear-gradient(135deg,#f3e8ff,#e2e8f0)] bg-cover bg-center"
+                  style={item.coverImageUrl ? { backgroundImage: `url('${item.coverImageUrl}')` } : undefined}
+                />
+                <div className="p-6">
+                  <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
+                    {formatDate(item.publishedAt || item.createdAt)}
+                  </p>
+                  <h4 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
+                  <p className="mt-3 text-base leading-7 text-slate-600">
+                    {item.excerpt || (item.body.length > 140 ? `${item.body.slice(0, 140)}...` : item.body)}
+                  </p>
+                  <Link
+                    href={`/news/${encodeURIComponent(item.slug)}`}
+                    className="mt-4 inline-flex text-sm font-semibold text-violet-700 hover:text-violet-800"
+                  >
+                    Read more →
+                  </Link>
+                </div>
+              </article>
+            ))
+          ) : (
+            <div className="border border-dashed border-violet-200 bg-violet-50/50 p-10 text-center text-slate-600 md:col-span-3">
+              <Newspaper className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
+              <p className="font-semibold text-slate-900">No news articles published yet</p>
+              <p className="mt-2 text-sm">Official updates and health advisories will appear here.</p>
+            </div>
+          )}
+        </div>
         </div>
       </section>
 
-      <section id="events" className="mx-auto max-w-6xl px-6 pb-14">
+      <section id="events" className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Events</p>
-            <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">Upcoming activities</h3>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Events</p>
+            <h3 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Upcoming activities</h3>
           </div>
           <Link href="/events" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
             View calendar →
@@ -355,105 +449,116 @@ export default function Home() {
         </div>
 
         <div className="grid gap-5 md:grid-cols-3">
-          {upcomingEvents.map((item) => (
-            <div key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-              <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
-                <span className="text-[0.64rem] font-semibold uppercase tracking-[0.14em]">{item.date.split(" ")[0] || "Date"}</span>
-                <span className="text-lg font-semibold">{item.date.split(" ")[1] || "TBD"}</span>
-              </div>
-              <h4 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
-              <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p>
+          {featuredEvents.length > 0 ? (
+            featuredEvents.map((item) => {
+              const eventDate = formatEventDate(item.startAt);
+              return (
+                <div key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+                  <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
+                    <span className="text-[0.64rem] font-semibold uppercase tracking-[0.14em]">{eventDate.month}</span>
+                    <span className="text-lg font-semibold">{eventDate.day}</span>
+                  </div>
+                  <h4 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h4>
+                  {item.location ? <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p> : null}
+                  {item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.description}</p> : null}
+                </div>
+              );
+            })
+          ) : (
+            <div className="border border-dashed border-violet-200 bg-white p-10 text-center text-slate-600 md:col-span-3">
+              <CalendarDays className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
+              <p className="font-semibold text-slate-900">No upcoming events scheduled</p>
+              <p className="mt-2 text-sm">Hospital activities and community health schedules will be listed here.</p>
             </div>
-          ))}
+          )}
         </div>
       </section>
 
-      <section id="resources" className="mx-auto max-w-6xl px-6 pb-14">
-        <div className="mb-6">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Resources</p>
-          <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">Documents and reports</h3>
+      <section id="resources" className="border-y border-slate-200 bg-white py-16">
+        <div className="mx-auto max-w-7xl px-5 sm:px-8">
+        <div className="mb-6 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Resources</p>
+            <h3 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Documents and reports</h3>
+          </div>
+          <Link href="/documents" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
+            View all →
+          </Link>
         </div>
 
-        <div className="rounded-[28px] border border-violet-200 bg-white p-6 shadow-[0_18px_40px_rgba(76,29,149,0.05)]">
+            <div className="border border-violet-200 bg-[#fbfaff] p-6">
           <div className="grid gap-4 md:grid-cols-3">
-            {resourceLinks.map((item) => (
-              <div key={item} className="rounded-[20px] border border-violet-200 bg-violet-50/50 p-5 text-sm font-medium text-slate-700">
-                {item}
+            {featuredDocuments.length > 0 ? (
+              featuredDocuments.map((item) => (
+                <a
+                  key={item.id}
+                  href={item.viewUrl ?? item.downloadUrl ?? "/documents"}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex items-center justify-between rounded-[20px] border border-violet-200 bg-violet-50/50 p-5 text-sm font-medium text-slate-700 transition hover:border-violet-300 hover:bg-violet-100/60"
+                >
+                  <span className="truncate pr-2">{item.title}</span>
+                  <span className="shrink-0 text-xs font-semibold text-violet-700">
+                    {(item.fileExtension ?? item.mimeType ?? "DOC").toUpperCase().slice(0, 4)} →
+                  </span>
+                </a>
+              ))
+            ) : (
+              <div className="border border-dashed border-violet-200 bg-violet-50/50 p-8 text-center text-sm font-medium text-slate-600 md:col-span-3">
+                <FileText className="mx-auto mb-3 text-violet-500" size={28} strokeWidth={1.5} />
+                Official public documents and reports will be listed here once published.
               </div>
-            ))}
+            )}
           </div>
         </div>
+        </div>
       </section>
 
-      <section id="contact" className="mt-2 bg-[linear-gradient(135deg,#2e1065_0%,#4c1d95_100%)] py-14 text-slate-100">
-        <div className="mx-auto grid max-w-6xl gap-8 px-6 md:grid-cols-2">
+      <section id="contact" className="bg-[#24164f] py-16 text-slate-100">
+        <div className="mx-auto grid max-w-7xl gap-10 px-5 sm:px-8 md:grid-cols-[0.75fr_1.25fr]">
           <div>
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-200">Contact</p>
+            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-300">Contact</p>
             <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-white sm:text-4xl">Get in touch</h3>
           </div>
 
-          <div className="space-y-3 text-sm leading-7 text-violet-100 sm:text-base">
-            <p>{settings?.address || "Official Address — To be provided"}</p>
-            <p>{settings?.phone || "Official Contact Number — To be provided"}</p>
-            <p>{settings?.officeHours || "Official Service / Office Hours — To be provided"}</p>
+          <div className="grid gap-5 text-sm leading-7 text-violet-100 sm:grid-cols-2 sm:text-base">
+            <p className="flex gap-3"><MapPin className="mt-1 shrink-0 text-violet-300" size={17} />{settings?.address || "Official Address — To be provided"}</p>
+            <p className="flex gap-3"><Phone className="mt-1 shrink-0 text-violet-300" size={17} />{settings?.phone || "Official Contact Number — To be provided"}</p>
+            <p className="flex gap-3"><Mail className="mt-1 shrink-0 text-violet-300" size={17} />{settings?.email || "Official Email — To be provided"}</p>
+            <div>
+              <p className="font-semibold text-white">Administrative Office Hours</p>
+              <p>{settings?.officeHours || "Administrative office hours — to be provided"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-white">Emergency Services</p>
+              <p>{settings?.emergencyServices24Hours ? "Open 24 hours, 7 days a week" : "Emergency services schedule — to be provided"}</p>
+            </div>
+            <div>
+              <p className="font-semibold text-white">Connect With Us</p>
+              {settings?.facebookUrl ? (
+                <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer" className="underline decoration-violet-300 underline-offset-2 hover:text-white">
+                  Official Facebook Page
+                </a>
+              ) : (
+                <p>Official Facebook URL — To be provided</p>
+              )}
+            </div>
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-violet-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-4">
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Hospital</h4>
-            <p className="text-sm leading-7 text-slate-600">
-              Casiguran District Hospital
-            </p>
-            <p className="text-sm leading-7 text-slate-600">
-              [Short official hospital description placeholder — to be approved by Dra.]
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Quick Links</h4>
-            <ul className="space-y-2 text-sm text-slate-600">
-              {footerQuickLinks.map((item) => (
-                <li key={`${item.label}-${item.href}`}>
-                  <Link href={item.href} className="transition hover:text-violet-700">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Hospital Information</h4>
-            <ul className="space-y-2 text-sm leading-7 text-slate-600">
-              <li>Official Address — To be provided</li>
-              <li>Official Contact Number — To be provided</li>
-              <li>Official Email — To be provided</li>
-              <li>Official Service / Office Hours — To be provided</li>
-            </ul>
-          </div>
-
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Connect With Us</h4>
-            <ul className="space-y-2 text-sm text-slate-600">
-              <li>
-                <a href="#" className="transition hover:text-violet-700">
-                  Official Facebook Page
-                </a>
-              </li>
-              <li>Official Facebook URL — To be provided</li>
-            </ul>
-          </div>
+      <footer className="relative isolate overflow-hidden border-t border-violet-400/30 bg-[#21164f] text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 overflow-hidden opacity-80">
+          <div className="absolute -left-24 bottom-[-8rem] h-52 w-[32rem] rounded-[50%] bg-violet-800/70" /><div className="absolute -right-28 bottom-[-7rem] h-56 w-[34rem] rounded-[50%] bg-violet-800/70" />
+          <div className="absolute -left-16 bottom-[-10rem] h-52 w-[34rem] rounded-[50%] border-t border-violet-400/30 bg-violet-950/40" /><div className="absolute -right-16 bottom-[-9rem] h-52 w-[34rem] rounded-[50%] border-t border-violet-400/30 bg-violet-950/40" />
         </div>
-
-        <div className="border-t border-violet-200 bg-violet-50/50">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-            <p>Official Website of Casiguran District Hospital</p>
-            <p>© 2026 Casiguran District Hospital. All Rights Reserved.</p>
-          </div>
+        <div className="relative mx-auto grid max-w-7xl gap-9 px-5 py-12 sm:px-8 md:grid-cols-[1.35fr_0.75fr_1fr_0.95fr] md:gap-0 md:py-14">
+          <div className="space-y-5 md:pr-10"><div className="flex items-center gap-3"><div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-violet-300 bg-white shadow-lg"><Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill sizes="64px" unoptimized className="object-cover" /></div><div className="leading-tight"><p className="text-xl font-bold text-white">Casiguran District</p><p className="text-2xl font-bold text-violet-300">Hospital</p></div></div><div className="h-1 w-14 rounded-full bg-violet-400" /><p className="max-w-md whitespace-pre-line text-sm leading-7 text-violet-100/85">{aboutPage?.body || "Official hospital profile information will appear here once published."}</p></div>
+          <div className="border-violet-400/35 md:border-l md:px-8"><h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Quick Links</h4><ul className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm text-violet-100/90 md:grid-cols-1">{footerQuickLinks.map((item) => <li key={`${item.label}-${item.href}`}><Link href={item.href} className="transition hover:text-white">{item.label}</Link></li>)}</ul></div>
+          <div className="border-violet-400/35 md:border-l md:px-8"><h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Hospital Information</h4><ul className="space-y-4 text-sm leading-6 text-violet-100/90"><li>{settings?.address || "Official Address — To be provided"}</li><li>{settings?.phone || "Official Contact Number — To be provided"}</li><li>{settings?.email || "Official Email — To be provided"}</li><li className="whitespace-pre-line">{formatOfficeHours(settings?.administrativeOfficeHours, settings?.officeHours)}</li></ul></div>
+          <div className="border-violet-400/35 md:border-l md:px-8"><h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Connect With Us</h4><p className="mb-5 text-sm text-violet-100/90">Official Facebook Page</p>{settings?.facebookUrl ? <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-violet-500"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg font-bold text-violet-700">f</span>Official Facebook Page -&gt;</a> : <span className="text-sm text-violet-100/75">Official Facebook URL — To be provided</span>}</div>
         </div>
+        <div className="relative border-t border-violet-400/35 bg-[#19113d]/80"><div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 text-xs text-violet-200/80 sm:flex-row sm:items-center sm:px-8"><Activity size={42} strokeWidth={1.5} className="text-violet-400" aria-hidden="true" /><p className="flex-1">Official Website of Casiguran District Hospital.</p><p>© 2026 Casiguran District Hospital. All Rights Reserved.</p></div></div>
       </footer>
     </main>
   );

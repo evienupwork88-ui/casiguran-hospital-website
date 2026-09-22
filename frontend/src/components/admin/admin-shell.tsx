@@ -2,9 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
-  Bell,
   CalendarDays,
   FileText,
   FolderOpen,
@@ -68,9 +67,48 @@ export function AdminShell({
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    if (!mobileOpen) {
+      mobileMenuTriggerRef.current?.focus();
+      return;
+    }
+
+    const menu = mobileMenuRef.current;
+    const focusable = menu?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [];
+    focusable[0]?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#f5f3ff] text-slate-900">
+    <div className="admin-theme min-h-screen overflow-x-hidden bg-[#f5f3ff] text-slate-900">
       <div className="flex h-screen overflow-hidden">
         <div
           aria-hidden={mobileOpen ? "false" : "true"}
@@ -79,6 +117,9 @@ export function AdminShell({
         />
 
         <aside
+          ref={mobileMenuRef}
+          id="admin-sidebar-navigation"
+          aria-label="Admin navigation"
           className={`fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-violet-400/20 bg-[linear-gradient(180deg,#2e1065_0%,#1f1635_100%)] text-slate-100 shadow-[0_20px_50px_rgba(46,16,101,0.26)] transition-all duration-200 lg:relative ${mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"} ${isCollapsed ? "lg:w-[84px]" : "lg:w-[260px]"} ${isCollapsed ? "w-[84px]" : "w-[260px]"}`}
         >
           <div className="flex shrink-0 items-center justify-between border-b border-violet-400/20 px-3 py-4">
@@ -107,6 +148,7 @@ export function AdminShell({
 
             <button
               type="button"
+              ref={mobileMenuTriggerRef}
               onClick={() => setMobileOpen((current) => !current)}
               className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-violet-300/25 bg-white/5 text-violet-100 transition hover:bg-white/10 lg:hidden"
               aria-label="Toggle navigation"
@@ -136,6 +178,7 @@ export function AdminShell({
                           href={item.href}
                           onClick={() => setMobileOpen(false)}
                           title={isCollapsed ? item.label : undefined}
+                          aria-label={isCollapsed ? item.label : undefined}
                           className={[
                             "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                             isCollapsed ? "justify-center px-2.5" : "",
@@ -212,6 +255,8 @@ export function AdminShell({
                     onClick={() => setMobileOpen((current) => !current)}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700 lg:hidden"
                     aria-label="Open sidebar navigation"
+                    aria-expanded={mobileOpen}
+                    aria-controls="admin-sidebar-navigation"
                   >
                     <Menu size={18} />
                   </button>
@@ -232,14 +277,6 @@ export function AdminShell({
                 </div>
 
                 <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    aria-label="Notifications"
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-violet-200 bg-violet-50 text-violet-700 transition hover:bg-violet-100"
-                  >
-                    <Bell size={16} />
-                  </button>
-
                   <div className="hidden items-center gap-2 rounded-full border border-violet-200 bg-violet-50 px-2.5 py-1.5 text-sm text-violet-800 sm:flex">
                     <span className="flex h-7 w-7 items-center justify-center rounded-full bg-violet-700 text-xs font-semibold text-white">
                       {(user?.fullName ?? "A").charAt(0).toUpperCase()}

@@ -1,6 +1,6 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
-import type { CreateServiceInput } from "../validation/services.schema";
+import type { CreateServiceInput, UpdateServiceInput } from "../validation/services.schema";
 
 export interface ServiceRecord {
   id: string;
@@ -80,4 +80,25 @@ export async function createService(input: CreateServiceInput): Promise<ServiceR
   }
 
   return mapServiceRow(data);
+}
+
+export async function updateService(id: string, input: UpdateServiceInput): Promise<ServiceRecord> {
+  const payload: Record<string, unknown> = {};
+  if (input.name !== undefined) payload.name = input.name.trim();
+  if (input.description !== undefined) payload.description = input.description.trim();
+  if (input.department !== undefined) payload.department = input.department.trim() || null;
+  if (input.iconOrImageUrl !== undefined) payload.icon_or_image_url = input.iconOrImageUrl.trim() || null;
+  if (input.displayOrder !== undefined) payload.display_order = input.displayOrder;
+  if (input.isActive !== undefined) payload.is_active = input.isActive;
+  const { data, error } = await supabase.from("services").update(payload).eq("id", id)
+    .select("id, name, description, department, icon_or_image_url, display_order, is_active, created_at, updated_at").single();
+  if (error) throw new Error(`Failed to update service: ${error.message}`);
+  if (!data) throw new AppError(404, "Service not found", "SERVICE_NOT_FOUND");
+  return mapServiceRow(data);
+}
+
+export async function deleteService(id: string): Promise<void> {
+  const { data, error } = await supabase.from("services").delete().eq("id", id).select("id").single();
+  if (error) throw new Error(`Failed to delete service: ${error.message}`);
+  if (!data) throw new AppError(404, "Service not found", "SERVICE_NOT_FOUND");
 }

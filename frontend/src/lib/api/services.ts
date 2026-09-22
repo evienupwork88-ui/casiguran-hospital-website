@@ -10,7 +10,7 @@ export type ServiceItem = {
   updatedAt: string;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
@@ -72,4 +72,22 @@ export async function createService(input: {
 
   const data = await parseJson<{ item: ServiceItem }>(response);
   return data.item;
+}
+
+function csrfHeaders() {
+  const csrfToken = document.cookie.split("; ").find((cookie) => cookie.startsWith("cdh_csrf="));
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (csrfToken) headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+  return headers;
+}
+
+export async function updateService(id: string, input: Partial<Parameters<typeof createService>[0]>): Promise<ServiceItem> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/services/${id}`, { method: "PUT", credentials: "include", headers: csrfHeaders(), body: JSON.stringify(input) });
+  const data = await parseJson<{ item: ServiceItem }>(response);
+  return data.item;
+}
+
+export async function deleteService(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/services/${id}`, { method: "DELETE", credentials: "include", headers: csrfHeaders() });
+  await parseJson<{ ok: boolean }>(response);
 }

@@ -1,6 +1,6 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
-import type { CreateEventInput } from "../validation/events.schema";
+import type { CreateEventInput, UpdateEventInput } from "../validation/events.schema";
 
 export interface EventRecord {
   id: string;
@@ -101,4 +101,26 @@ export async function createEvent(input: CreateEventInput, authorId: string): Pr
   }
 
   return mapEventRow(data);
+}
+
+export async function updateEvent(id: string, input: UpdateEventInput): Promise<EventRecord> {
+  const payload: Record<string, unknown> = {};
+  if (input.title !== undefined) payload.title = input.title;
+  if (input.description !== undefined) payload.description = input.description.trim() || null;
+  if (input.location !== undefined) payload.location = input.location.trim() || null;
+  if (input.startAt !== undefined) payload.start_at = input.startAt;
+  if (input.endAt !== undefined) payload.end_at = input.endAt || null;
+  if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (input.status !== undefined) payload.status = input.status;
+  const { data, error } = await supabase.from("events").update(payload).eq("id", id)
+    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at").single();
+  if (error) throw new Error(`Failed to update event: ${error.message}`);
+  if (!data) throw new AppError(404, "Event not found", "EVENT_NOT_FOUND");
+  return mapEventRow(data);
+}
+
+export async function deleteEvent(id: string): Promise<void> {
+  const { data, error } = await supabase.from("events").delete().eq("id", id).select("id").single();
+  if (error) throw new Error(`Failed to delete event: ${error.message}`);
+  if (!data) throw new AppError(404, "Event not found", "EVENT_NOT_FOUND");
 }

@@ -1,3 +1,10 @@
+export type AdministrativeOfficeHourDay = {
+  day: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+  isOpen: boolean;
+  startTime: string;
+  endTime: string;
+};
+
 export type SiteSettings = {
   id: number;
   address: string | null;
@@ -5,12 +12,14 @@ export type SiteSettings = {
   email: string | null;
   facebookUrl: string | null;
   officeHours: string | null;
+  administrativeOfficeHours: AdministrativeOfficeHourDay[];
+  emergencyServices24Hours: boolean;
   mapEmbedUrl: string | null;
   updatedAt: string;
   updatedBy: string | null;
 };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 async function parseJson<T>(response: Response): Promise<T> {
   const data = await response.json().catch(() => null);
@@ -49,6 +58,8 @@ export async function updateSettings(input: {
   email?: string;
   facebookUrl?: string;
   officeHours?: string;
+  administrativeOfficeHours?: AdministrativeOfficeHourDay[];
+  emergencyServices24Hours?: boolean;
   mapEmbedUrl?: string;
 }): Promise<SiteSettings> {
   const csrfToken = document.cookie

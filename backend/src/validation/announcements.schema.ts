@@ -10,3 +10,5 @@ export const createAnnouncementSchema = z.object({
 });
 
 export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
+export const updateAnnouncementSchema = createAnnouncementSchema.partial();
+export type UpdateAnnouncementInput = z.infer<typeof updateAnnouncementSchema>;

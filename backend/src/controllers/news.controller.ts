@@ -2,11 +2,13 @@ import type { Request, Response } from "express";
 import { AppError } from "../utils/AppError";
 import {
   createNews,
+  deleteNews,
   getPublishedNewsBySlug,
   listAllNews,
   listPublishedNews,
+  updateNews,
 } from "../services/news.service";
-import type { CreateNewsInput } from "../validation/news.schema";
+import type { CreateNewsInput, UpdateNewsInput } from "../validation/news.schema";
 
 export async function listPublicNews(_req: Request, res: Response) {
   const news = await listPublishedNews();
@@ -38,4 +40,16 @@ export async function createAdminNews(req: Request, res: Response) {
 
   const article = await createNews(input, req.user.id);
   res.status(201).json({ item: article });
+}
+
+export async function updateAdminNews(req: Request, res: Response) {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const article = await updateNews(id, req.body as UpdateNewsInput);
+  res.status(200).json({ item: article });
+}
+
+export async function deleteAdminNews(req: Request, res: Response) {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  await deleteNews(id);
+  res.status(200).json({ ok: true, message: "News article deleted successfully." });
 }

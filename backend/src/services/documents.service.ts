@@ -149,6 +149,10 @@ function validateDocumentFile(file: UploadDocumentInput["file"], category?: stri
   }
 
   const magicMime = detectMimeFromMagic(file.buffer);
+  if (!magicMime) {
+    throw new AppError(400, "File signature could not be verified.", "INVALID_FILE_SIGNATURE");
+  }
+
   if (magicMime && allowedMimeList.length > 0 && !allowedMimeList.includes(magicMime)) {
     throw new AppError(400, "File signature does not match the expected file format.", "INVALID_FILE_SIGNATURE");
   }
@@ -197,7 +201,6 @@ function mapDocumentRow(row: any): DocumentRecord {
 
 async function resolveStorageLink(filePath: string): Promise<{ viewUrl: string | null; downloadUrl: string | null }> {
   const bucketName = env.storageBucketName;
-  const encodedPath = encodeURIComponent(filePath);
 
   try {
     const { data: signed, error: signedError } = await supabase.storage
@@ -211,15 +214,10 @@ async function resolveStorageLink(filePath: string): Promise<{ viewUrl: string |
       };
     }
   } catch {
-    // Fall back to the public URL if the bucket is public.
+    return { viewUrl: null, downloadUrl: null };
   }
 
-  const publicUrl = `${env.supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/${bucketName}/${encodedPath}`;
-
-  return {
-    viewUrl: publicUrl,
-    downloadUrl: publicUrl,
-  };
+  return { viewUrl: null, downloadUrl: null };
 }
 
 export async function listPublishedDocuments(category?: string): Promise<DocumentRecord[]> {

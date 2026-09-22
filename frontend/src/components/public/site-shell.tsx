@@ -3,15 +3,20 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Activity, HeartPulse, Menu, Settings, X } from "lucide-react";
+import { getPublicPage, type PageItem } from "@/lib/api/pages";
+import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
+import { formatOfficeHours } from "@/lib/format-office-hours";
 
 type PublicShellProps = {
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  headerOverImage?: boolean;
 };
 
-const navItems = [
+export const publicNavItems = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/organizational-chart", label: "Organizational Chart" },
@@ -24,39 +29,124 @@ const navItems = [
 const footerQuickLinks = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
+  { href: "/hospital-history", label: "Hospital History" },
+  { href: "/vision-mission", label: "Vision & Mission" },
   { href: "/services", label: "Services" },
   { href: "/news", label: "News" },
   { href: "/announcements", label: "Announcements" },
   { href: "/events", label: "Events" },
+  { href: "/documents", label: "Documents" },
+  { href: "/organizational-chart", label: "Organizational Chart" },
   { href: "/contact", label: "Contact" },
 ];
 
-export function PublicShell({ title, subtitle, children }: PublicShellProps) {
+export function PublicShell({ title, subtitle, children, headerOverImage = false }: PublicShellProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const [settings, setSettings] = useState<SiteSettings | null>(null);
+  const [aboutPage, setAboutPage] = useState<PageItem | null>(null);
+
+  useEffect(() => {
+    async function loadSettings() {
+      const [settingsData, aboutData] = await Promise.all([
+        getPublicSettings().catch(() => null),
+        getPublicPage("about").catch(() => null),
+      ]);
+      setSettings(settingsData);
+      setAboutPage(aboutData);
+    }
+
+    loadSettings();
+  }, []);
 
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
 
+  useEffect(() => {
+    if (!mobileOpen) {
+      mobileMenuTriggerRef.current?.focus();
+      return;
+    }
+
+    const menu = mobileMenuRef.current;
+    const focusable = menu?.querySelectorAll<HTMLElement>("a[href], button:not([disabled])") ?? [];
+    focusable[0]?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setMobileOpen(false);
+        return;
+      }
+
+      if (event.key !== "Tab" || focusable.length === 0) return;
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [mobileOpen]);
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(139,92,246,0.12),_transparent_24%),linear-gradient(180deg,#faf7ff_0%,#fff_30%,#f8fafc_100%)] text-slate-900">
-      <header className="sticky top-0 z-30 border-b border-violet-200/80 bg-white/85 backdrop-blur-xl shadow-[0_14px_32px_rgba(76,29,149,0.06)]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-2.5 sm:px-6">
-          <Link href="/" className="flex min-w-0 items-center gap-3 rounded-full border border-violet-200 bg-gradient-to-r from-violet-50 to-white px-3 py-2 shadow-[0_8px_20px_rgba(124,58,237,0.08)] transition hover:border-violet-300 sm:px-4">
-            <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-violet-200 bg-white sm:h-11 sm:w-11">
-              <Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill className="object-cover" />
+    <main className="public-theme min-h-screen bg-[#f8f9fc] text-slate-900">
+      <header
+        className={[
+          "sticky top-0 z-30 overflow-hidden border-b shadow-[0_8px_24px_rgba(37,27,88,0.06)] backdrop-blur-xl",
+          headerOverImage
+            ? "border-white/20 bg-[#24164f]/75 text-[#f2f3f4]"
+            : "border-slate-200/90 bg-white/95",
+        ].join(" ")}
+      >
+          <HeartPulse aria-hidden="true" className={["pointer-events-none absolute -right-2 top-3 h-20 w-28 opacity-10", headerOverImage ? "text-white" : "text-violet-700"].join(" ")} strokeWidth={1.2} />
+          <div className="relative mx-auto flex min-h-[84px] max-w-7xl items-center justify-between gap-5 px-5 sm:px-8 lg:min-h-[116px]">
+          <Link href="/" className={[
+            "flex min-w-0 items-center gap-3 transition-opacity hover:opacity-80",
+            headerOverImage ? "text-[#f2f3f4]" : "",
+          ].join(" ")}>
+            <div className={[
+              "relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 shadow-sm lg:h-20 lg:w-20",
+              headerOverImage ? "border-white/40 bg-white/10" : "border-violet-200 bg-violet-50",
+            ].join(" ")}>
+              <Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill sizes="80px" className="object-cover" />
             </div>
-            <div className="min-w-0 text-left leading-tight">
-              <p className="truncate text-[8.5px] font-semibold uppercase tracking-[0.22em] text-violet-700 sm:text-[9.5px]">
-                Casiguran District Hospital PGA
+            <div className={[
+              "min-w-0 border-l pl-4 text-left leading-tight",
+              headerOverImage ? "border-white/30" : "border-slate-200",
+            ].join(" ")}>
+              <p className={[
+                "max-w-[250px] text-lg font-bold leading-tight tracking-[-0.02em] sm:text-xl lg:text-2xl",
+                headerOverImage ? "text-[#f2f3f4]" : "text-violet-700",
+              ].join(" ")}>
+                <span className="block">Casiguran District</span>
+                <span className="block">Hospital PGA</span>
               </p>
-              <p className="mt-1 text-sm font-semibold text-slate-900 sm:text-[0.95rem]">Official portal</p>
+              <p className={[
+                "mt-2 text-sm font-medium lg:text-base",
+                headerOverImage ? "text-[#f2f3f4]" : "text-slate-500",
+              ].join(" ")}>Official portal</p>
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-2 text-sm font-medium md:flex">
-            {navItems.map((item) => {
+          <nav className={[
+            "hidden items-center gap-1 text-[0.82rem] font-medium lg:flex",
+            headerOverImage ? "text-[#f2f3f4]" : "text-slate-600",
+          ].join(" ")}>
+            {publicNavItems.map((item) => {
               const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
               const isAdmin = item.href.startsWith("/admin");
 
@@ -64,17 +154,20 @@ export function PublicShell({ title, subtitle, children }: PublicShellProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  target={isAdmin ? "_blank" : undefined}
+                  rel={isAdmin ? "noopener noreferrer" : undefined}
                   className={[
-                    "rounded-full px-3.5 py-2 transition-all duration-200",
+                    "inline-flex items-center gap-2 px-3 py-2 transition-colors duration-200",
                     isActive
                       ? isAdmin
-                        ? "border border-violet-200 bg-violet-100 text-violet-900 shadow-sm"
-                        : "bg-violet-100 text-violet-900 shadow-sm"
+                        ? headerOverImage ? "rounded-full bg-white/15 text-[#f2f3f4]" : "text-violet-700"
+                        : headerOverImage ? "text-[#f2f3f4]" : "text-violet-700"
                       : isAdmin
-                        ? "border border-violet-200 bg-violet-700 text-violet-50 shadow-[0_10px_18px_rgba(124,58,237,0.24)] hover:bg-violet-800"
-                        : "text-violet-700 hover:bg-violet-50 hover:text-violet-900",
+                        ? "ml-2 rounded-full bg-violet-600 px-5 text-white shadow-[0_8px_18px_rgba(124,58,237,0.25)] hover:bg-violet-700"
+                        : headerOverImage ? "hover:text-white" : "hover:text-violet-700",
                   ].join(" ")}
                 >
+                  {isAdmin ? <Settings size={16} aria-hidden="true" /> : null}
                   {item.label}
                 </Link>
               );
@@ -83,24 +176,33 @@ export function PublicShell({ title, subtitle, children }: PublicShellProps) {
 
           <button
             type="button"
+            ref={mobileMenuTriggerRef}
             aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
             aria-expanded={mobileOpen}
+            aria-controls="public-mobile-navigation"
             onClick={() => setMobileOpen((open) => !open)}
-            className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-violet-200 bg-violet-50 text-violet-700 transition hover:bg-violet-100 md:hidden"
+            className={[
+              "inline-flex h-10 w-10 items-center justify-center border transition lg:hidden",
+              headerOverImage
+                ? "border-white/30 bg-white/10 text-[#f2f3f4] hover:bg-white/20"
+                : "border-slate-200 bg-white text-violet-700 hover:bg-violet-50",
+            ].join(" ")}
           >
             <span className="sr-only">Toggle menu</span>
-            <div className="flex w-4.5 flex-col items-center gap-1.25">
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "translate-y-2 rotate-45" : ""}`} />
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "opacity-0" : "opacity-100"}`} />
-              <span className={`h-0.5 w-full rounded-full bg-current transition ${mobileOpen ? "-translate-y-2 -rotate-45" : ""}`} />
-            </div>
+            {mobileOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
 
         {mobileOpen && (
-          <div className="border-t border-violet-200 bg-white/95 px-4 py-3 shadow-[0_12px_24px_rgba(91,33,182,0.08)] md:hidden">
-            <nav className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto text-sm font-medium">
-              {navItems.map((item) => {
+          <div
+            id="public-mobile-navigation"
+            ref={mobileMenuRef}
+            className={[
+            "border-t px-5 py-4 shadow-lg lg:hidden",
+            headerOverImage ? "border-white/20 bg-[#24164f]" : "border-slate-200 bg-white",
+          ].join(" ")}>
+            <nav aria-label="Mobile navigation" className="flex max-h-[70vh] flex-col gap-1 overflow-y-auto text-sm font-medium">
+              {publicNavItems.map((item) => {
                 const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
                 const isAdmin = item.href.startsWith("/admin");
 
@@ -108,19 +210,22 @@ export function PublicShell({ title, subtitle, children }: PublicShellProps) {
                   <Link
                     key={item.href}
                     href={item.href}
+                    target={isAdmin ? "_blank" : undefined}
+                    rel={isAdmin ? "noopener noreferrer" : undefined}
                     onClick={() => setMobileOpen(false)}
                     className={[
-                      "rounded-xl px-3 py-3 transition-all duration-200",
+                      "border-b px-2 py-3 transition-colors",
+                      headerOverImage ? "border-white/10" : "border-slate-100",
                       isActive
                         ? isAdmin
-                          ? "bg-violet-700 text-white"
-                          : "bg-violet-100 text-violet-900"
-                        : isAdmin
-                          ? "border border-violet-200 bg-violet-700 text-violet-50"
-                          : "text-violet-700 hover:bg-violet-50 hover:text-violet-900",
+                          ? headerOverImage ? "text-[#f2f3f4]" : "text-violet-700"
+                          : headerOverImage ? "text-[#f2f3f4]" : "text-slate-700"
+                          : isAdmin
+                            ? headerOverImage ? "text-[#f2f3f4]" : "text-violet-700"
+                          : headerOverImage ? "hover:text-white" : "hover:text-violet-700",
                     ].join(" ")}
                   >
-                    {item.label}
+                    <span className="inline-flex items-center gap-2">{isAdmin ? <Settings size={16} aria-hidden="true" /> : null}{item.label}</span>
                   </Link>
                 );
               })}
@@ -129,15 +234,15 @@ export function PublicShell({ title, subtitle, children }: PublicShellProps) {
         )}
       </header>
 
-      <section className="mx-auto max-w-6xl px-6 py-12 md:py-16">
-        <div className="rounded-[30px] border border-violet-200 bg-white/85 p-8 shadow-[0_20px_50px_rgba(91,33,182,0.08)] backdrop-blur-sm md:p-10">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">
+      <section className="border-b border-slate-200 bg-white">
+        <div className="mx-auto max-w-7xl px-5 py-12 sm:px-8 md:py-16">
+          <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">
             Hospital information
           </p>
-          <h1 className="mt-4 text-3xl font-semibold leading-[1.04] tracking-[-0.06em] text-slate-900 sm:text-4xl md:text-[3.2rem]">
+          <h1 className="mt-3 max-w-4xl text-4xl font-semibold leading-[1.05] text-slate-950 sm:text-5xl">
             {title}
           </h1>
-          <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600 sm:text-lg sm:leading-8">
+          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
             {subtitle}
           </p>
         </div>
@@ -145,53 +250,58 @@ export function PublicShell({ title, subtitle, children }: PublicShellProps) {
 
       {children}
 
-      <footer className="border-t border-violet-200 bg-white">
-        <div className="mx-auto grid max-w-6xl gap-10 px-6 py-12 md:grid-cols-4">
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Hospital</h4>
-            <p className="text-sm leading-7 text-slate-600">Casiguran District Hospital</p>
-            <p className="text-sm leading-7 text-slate-600">[Short official hospital description placeholder — to be approved by Dra.]</p>
+      <footer className="relative isolate overflow-hidden border-t border-violet-400/30 bg-[#21164f] text-white">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-44 overflow-hidden opacity-80">
+          <div className="absolute -left-24 bottom-[-8rem] h-52 w-[32rem] rounded-[50%] bg-violet-800/70" />
+          <div className="absolute -right-28 bottom-[-7rem] h-56 w-[34rem] rounded-[50%] bg-violet-800/70" />
+          <div className="absolute -left-16 bottom-[-10rem] h-52 w-[34rem] rounded-[50%] border-t border-violet-400/30 bg-violet-950/40" />
+          <div className="absolute -right-16 bottom-[-9rem] h-52 w-[34rem] rounded-[50%] border-t border-violet-400/30 bg-violet-950/40" />
+        </div>
+        <div className="relative mx-auto grid max-w-7xl gap-9 px-5 py-12 sm:px-8 md:grid-cols-[1.35fr_0.75fr_1fr_0.95fr] md:gap-0 md:py-14">
+          <div className="space-y-5 md:pr-10">
+            <div className="flex items-center gap-3">
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full border-2 border-violet-300 bg-white shadow-lg">
+                <Image src="/cdh-logo-circle.png" alt="Casiguran District Hospital logo" fill sizes="64px" unoptimized className="object-cover" />
+              </div>
+              <div className="leading-tight">
+                <p className="text-xl font-bold text-white">Casiguran District</p>
+                <p className="text-2xl font-bold text-violet-300">Hospital</p>
+              </div>
+            </div>
+            <div className="h-1 w-14 rounded-full bg-violet-400" />
+            <p className="max-w-md whitespace-pre-line text-sm leading-7 text-violet-100/85">
+              {aboutPage?.body || "Official hospital profile information will appear here once published."}
+            </p>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Quick Links</h4>
-            <ul className="space-y-2 text-sm text-slate-600">
-              {footerQuickLinks.map((item) => (
-                <li key={`${item.label}-${item.href}`}>
-                  <Link href={item.href} className="transition hover:text-violet-700">
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+          <div className="border-violet-400/35 md:border-l md:px-8">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Quick Links</h4>
+            <ul className="grid grid-cols-2 gap-x-5 gap-y-2 text-sm text-violet-100/90 md:grid-cols-1">
+              {footerQuickLinks.map((item) => <li key={`${item.label}-${item.href}`}><Link href={item.href} className="transition hover:text-white">{item.label}</Link></li>)}
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Hospital Information</h4>
-            <ul className="space-y-2 text-sm leading-7 text-slate-600">
-              <li>Official Address — To be provided</li>
-              <li>Official Contact Number — To be provided</li>
-              <li>Official Email — To be provided</li>
-              <li>Official Service / Office Hours — To be provided</li>
+          <div className="border-violet-400/35 md:border-l md:px-8">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Hospital Information</h4>
+            <ul className="space-y-4 text-sm leading-6 text-violet-100/90">
+              <li>{settings?.address || "Official Address — To be provided"}</li>
+              <li>{settings?.phone || "Official Contact Number — To be provided"}</li>
+              <li>{settings?.email || "Official Email — To be provided"}</li>
+              <li className="whitespace-pre-line">{formatOfficeHours(settings?.administrativeOfficeHours, settings?.officeHours)}</li>
             </ul>
           </div>
 
-          <div className="space-y-4">
-            <h4 className="text-lg font-semibold tracking-[-0.04em] text-slate-900">Connect With Us</h4>
-            <ul className="space-y-2 text-sm text-slate-600">
-              <li>
-                <a href="#" className="transition hover:text-violet-700">
-                  Official Facebook Page
-                </a>
-              </li>
-              <li>Official Facebook URL — To be provided</li>
-            </ul>
+          <div className="border-violet-400/35 md:border-l md:px-8">
+            <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.24em] text-violet-300">Connect With Us</h4>
+            <p className="mb-5 text-sm text-violet-100/90">Official Facebook Page</p>
+            {settings?.facebookUrl ? <a href={settings.facebookUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-3 rounded-xl bg-violet-600 px-4 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-violet-500"><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg font-bold text-violet-700">f</span>Official Facebook Page -&gt;</a> : <span className="text-sm text-violet-100/75">Official Facebook URL — To be provided</span>}
           </div>
         </div>
 
-        <div className="border-t border-violet-200 bg-violet-50/50">
-          <div className="mx-auto flex max-w-6xl flex-col gap-2 px-6 py-4 text-sm text-slate-600 sm:flex-row sm:items-center sm:justify-between">
-            <p>Official Website of Casiguran District Hospital</p>
+        <div className="relative border-t border-violet-400/35 bg-[#19113d]/80">
+          <div className="mx-auto flex max-w-7xl flex-col gap-3 px-5 py-4 text-xs text-violet-200/80 sm:flex-row sm:items-center sm:px-8">
+            <Activity size={42} strokeWidth={1.5} className="text-violet-400" aria-hidden="true" />
+            <p className="flex-1">Official Website of Casiguran District Hospital.</p>
             <p>© 2026 Casiguran District Hospital. All Rights Reserved.</p>
           </div>
         </div>

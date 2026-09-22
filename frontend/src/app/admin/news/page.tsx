@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { createNews, getAdminNews, type NewsItem } from "@/lib/api/news";
+import { createNews, deleteNews, getAdminNews, updateNews, type NewsItem } from "@/lib/api/news";
+import { useNotifications } from "@/components/providers/notification-provider";
 
 const emptyForm = {
   title: "",
@@ -20,6 +21,8 @@ export default function AdminNewsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [form, setForm] = useState(emptyForm);
   const [error, setError] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const { showSuccess, showError } = useNotifications();
 
   async function loadArticles() {
     try {
@@ -42,13 +45,40 @@ export default function AdminNewsPage() {
     setIsSubmitting(true);
 
     try {
-      await createNews(form);
+      if (editingId) {
+        await updateNews(editingId, form);
+        showSuccess("News article updated.", "Saved");
+      } else {
+        await createNews(form);
+        showSuccess("News article created.", "Saved");
+      }
       setForm(emptyForm);
+      setEditingId(null);
       await loadArticles();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create article.");
+      const message = err instanceof Error ? err.message : "Unable to save article.";
+      setError(message);
+      showError(message, "Unable to save article");
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  function beginEdit(item: NewsItem) {
+    setEditingId(item.id);
+    setForm({ title: item.title, slug: item.slug, excerpt: item.excerpt ?? "", body: item.body, coverImageUrl: item.coverImageUrl ?? "", status: item.status });
+    setError("");
+  }
+
+  async function handleDelete(item: NewsItem) {
+    if (!window.confirm(`Delete "${item.title}"?`)) return;
+    try {
+      await deleteNews(item.id);
+      if (editingId === item.id) { setEditingId(null); setForm(emptyForm); }
+      showSuccess("News article deleted.", "Deleted");
+      await loadArticles();
+    } catch (err) {
+      showError(err instanceof Error ? err.message : "Unable to delete article.", "Delete failed");
     }
   }
 
@@ -124,7 +154,7 @@ export default function AdminNewsPage() {
         </div>
 
         {error ? (
-          <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
           </div>
         ) : null}
@@ -135,13 +165,13 @@ export default function AdminNewsPage() {
             disabled={isSubmitting}
             className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
-            {isSubmitting ? "Saving..." : "Save article"}
+            {isSubmitting ? "Saving..." : editingId ? "Update article" : "Save article"}
           </button>
         </div>
       </form>
 
-      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200">
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
@@ -150,21 +180,20 @@ export default function AdminNewsPage() {
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
                 Status
               </th>
-              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-                Date
-              </th>
+              <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Date</th>
+              <th className="px-5 py-3 text-right text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">
                   Loading articles...
                 </td>
               </tr>
             ) : articles.length === 0 ? (
               <tr>
-                <td colSpan={3} className="px-5 py-8 text-center text-sm text-slate-500">
+                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">
                   No news articles yet.
                 </td>
               </tr>
@@ -179,6 +208,10 @@ export default function AdminNewsPage() {
                   </td>
                   <td className="px-5 py-4 text-sm text-slate-700">
                     {item.publishedAt ? new Date(item.publishedAt).toLocaleDateString() : "-"}
+                  </td>
+                  <td className="px-5 py-4 text-right text-sm">
+                    <button type="button" onClick={() => beginEdit(item)} className="font-semibold text-violet-700 hover:text-violet-900">Edit</button>
+                    <button type="button" onClick={() => handleDelete(item)} className="ml-4 font-semibold text-red-700 hover:text-red-900">Delete</button>
                   </td>
                 </tr>
               ))
