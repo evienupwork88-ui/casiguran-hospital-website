@@ -7,11 +7,12 @@ import { getAdminPages, updatePage, type PageItem } from "@/lib/api/pages";
 import { useNotifications } from "@/components/providers/notification-provider";
 
 const pageConfig = [
+  { slug: "mandate", label: "Mandate" },
   { slug: "about", label: "About the Hospital" },
   { slug: "hospital-history", label: "Hospital History" },
   { slug: "vision", label: "Vision" },
   { slug: "mission", label: "Mission" },
-  { slug: "core-values", label: "Core Values" },
+  { slug: "service-pledge", label: "Service Pledge" },
   { slug: "key-officials", label: "Key Officials" },
 ];
 

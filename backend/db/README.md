@@ -27,8 +27,8 @@ entirely — RLS is on as a deny-by-default safety net, not because
 anything currently relies on a policy), and seeds:
 - `site_settings` — one empty row (the app expects exactly one to
   always exist)
-- `pages` — six placeholder rows (`about`, `hospital-history`,
-  `vision`, `mission`, `core-values`, `key-officials`), each with clearly-labeled
+- `pages` — seven placeholder rows (`mandate`, `about`, `hospital-history`,
+  `vision`, `mission`, `service-pledge`, `key-officials`), each with clearly-labeled
   placeholder text until the hospital provides real content.
   `vision` and `mission` are stored as separate records even though
   they render together on the public `/vision-mission` page.
@@ -44,6 +44,10 @@ For later schema changes, run only the new numbered migration in the
 Supabase SQL Editor. To add the Key Officials page to an existing
 database, run
 [`migrations/0005_key_officials_page.sql`](migrations/0005_key_officials_page.sql).
+To add the Mandate page to an existing database, run
+[`migrations/0008_mandate_page.sql`](migrations/0008_mandate_page.sql).
+To rename the Core Values page record to Service Pledge, run
+[`migrations/0007_service_pledge_page.sql`](migrations/0007_service_pledge_page.sql).
 To add the Hospital Development Plan document category to an existing
 database, run
 [`migrations/0006_documents_development_plan.sql`](migrations/0006_documents_development_plan.sql).

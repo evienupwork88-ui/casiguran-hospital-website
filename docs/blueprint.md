@@ -4,7 +4,7 @@
 
 **Stack recap:** Next.js + TypeScript + Tailwind (frontend) · Node.js + Express + TypeScript REST API (backend) · Supabase (Postgres + Storage **only** — used server-side only) · Authentication is handled entirely in Express: bcrypt password hashes in `admin_users` + opaque, cookie-based server sessions with CSRF protection and role-based access control (see Section 6).
 
-**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, `services.department` kept optional/nullable pending hospital input, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for About/Hospital History/Vision/Mission/Core Values/Key Officials with Vision and Mission stored as separate rows and Key Officials separate from the organizational chart, optional `description` added to `documents`.
+**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, `services.department` kept optional/nullable pending hospital input, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for Mandate/About/Hospital History/Vision/Mission/Service Pledge/Key Officials with Vision and Mission stored as separate rows and Key Officials separate from the organizational chart, optional `description` added to `documents`.
 
 ---
 
@@ -42,7 +42,7 @@ frontend/
 │   │   ├── about/page.tsx
 │   │   ├── hospital-history/page.tsx
 │   │   ├── vision-mission/page.tsx
-│   │   ├── core-values/page.tsx
+│   │   ├── vision-mission/page.tsx       # Vision / Mission / Service Pledge
 │   │   ├── services/page.tsx
 │   │   ├── news/page.tsx
 │   │   ├── news/[slug]/page.tsx
@@ -59,7 +59,7 @@ frontend/
 │       ├── events/...
 │       ├── documents/...
 │       ├── services/...
-│       ├── pages/{page.tsx, [id]/edit/page.tsx}    # About / Hospital History / Vision-Mission / Core Values
+│       ├── pages/{page.tsx, [id]/edit/page.tsx}    # About / Hospital History / Vision / Mission / Service Pledge
 │       ├── settings/page.tsx
 │       └── users/page.tsx          # role-gated: admin only
 ├── components/
@@ -193,8 +193,8 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 - **Admin-only:** `updated_by`, `updated_at`.
 
 ### `pages`
-- **Purpose:** long-form institutional content — About, Hospital History, Vision/Mission, Core Values, and any future one-off page the hospital asks for — without needing a new table each time.
-- **Key fields:** `id`, `slug` (unique — `about`, `hospital-history`, `vision`, `mission`, `core-values`, `key-officials`), `title`, `body`, `updated_at`, `updated_by`.
+- **Purpose:** long-form institutional content — About, Hospital History, Vision, Mission, Service Pledge, and any future one-off page the hospital asks for — without needing a new table each time.
+- **Key fields:** `id`, `slug` (unique — `mandate`, `about`, `hospital-history`, `vision`, `mission`, `service-pledge`, `key-officials`), `title`, `body`, `updated_at`, `updated_by`.
 - **Relationships:** `updated_by → admin_users`.
 - **Required:** `slug`, `title`, `body`.
 - **Publicly visible:** `slug`, `title`, `body`.
@@ -256,7 +256,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 | PUT | `/api/admin/services/:id` | Update | required | editor, admin |
 | DELETE | `/api/admin/services/:id` | Delete | required | admin |
 
-### Pages (About / Hospital History / Vision / Mission / Core Values / Key Officials)
+### Pages (Mandate / About / Hospital History / Vision / Mission / Service Pledge / Key Officials)
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
 | GET | `/api/public/pages/:slug` | Fetch one published page by slug | none | — |
@@ -264,7 +264,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 | GET | `/api/admin/pages/:id` | Get one for editing | required | editor, admin |
 | PUT | `/api/admin/pages/:id` | Update title/body | required | editor, admin |
 
-*No `POST`/`DELETE` for v1 — the initial set of pages (`about`, `hospital-history`, `vision`, `mission`, `core-values`) is seeded once during setup and only ever edited, not created or removed through the CMS. This keeps the feature to exactly what's needed rather than building general-purpose page management nobody asked for.*
+*No `POST`/`DELETE` for v1 — the initial set of pages (`mandate`, `about`, `hospital-history`, `vision`, `mission`, `service-pledge`, `key-officials`) is seeded once during setup and only ever edited, not created or removed through the CMS. This keeps the feature to exactly what's needed rather than building general-purpose page management nobody asked for.*
 
 ### Site Settings
 | Method | Endpoint | Purpose | Auth | Role |
@@ -410,10 +410,10 @@ Your suggested progression holds up well; I've added one sub-phase (4.5) worth c
 - `services.department`: kept optional/nullable pending hospital input on how services are actually grouped.
 - Roles: `admin` + `editor` confirmed, one `admin` account at launch.
 - Authentication: bcrypt + `admin_users.password_hash` + Express sessions — Supabase Auth dropped from the design.
-- Added `pages` table for About/Vision/Mission/Core Values.
+- Added `pages` table for About/Vision/Mission/Service Pledge.
 - Added optional `description` to `documents`.
 - Security measures (CSRF, CORS, rate limiting, validation, headers, upload hardening) reconfirmed as-is.
-- **Added `hospital-history` as a fourth seeded row in `pages`** (slugs now: `about`, `hospital-history`, `vision`, `mission`, `core-values`). Vision and mission are stored as separate database rows but still render together on the public `/vision-mission` page. No new table — reuses the existing `pages` design exactly as-is (same fields, same API shape, same admin-editable pattern). Content must come from the hospital; nothing historical is invented.
+- **Added `hospital-history` as a fourth seeded row in `pages`** (slugs now: `about`, `hospital-history`, `vision`, `mission`, `service-pledge`). Vision and mission are stored as separate database rows but still render together on the public `/vision-mission` page. No new table — reuses the existing `pages` design exactly as-is (same fields, same API shape, same admin-editable pattern). Content must come from the hospital; nothing historical is invented.
 
 ## Still open
 - Hosting target for `frontend`/`backend`

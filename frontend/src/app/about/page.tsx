@@ -15,7 +15,7 @@ export default function AboutPage() {
       try {
         const [aboutData, cvData] = await Promise.all([
           getPublicPage("about").catch(() => null),
-          getPublicPage("core-values").catch(() => null),
+          getPublicPage("service-pledge").catch(() => null),
         ]);
         setAboutPage(aboutData);
         setCoreValuesPage(cvData);
@@ -72,7 +72,14 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-5">
+          <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Mandate</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">Read the hospital&apos;s official mandate.</p>
+            <Link href="/mandate" className="mt-4 inline-block text-sm font-semibold text-violet-700 hover:text-violet-800">
+              View mandate →
+            </Link>
+          </div>
           <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Hospital History</p>
             <p className="mt-3 text-sm leading-7 text-slate-600">Explore the institutional story and milestones of the hospital.</p>
@@ -82,7 +89,7 @@ export default function AboutPage() {
           </div>
           <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Vision & Mission</p>
-            <p className="mt-3 text-sm leading-7 text-slate-600">View our institutional mandate, vision, and mission statements.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">View the hospital&apos;s vision, mission, and service pledge.</p>
             <Link href="/vision-mission" className="mt-4 inline-block text-sm font-semibold text-violet-700 hover:text-violet-800">
               View vision and mission →
             </Link>
@@ -105,7 +112,7 @@ export default function AboutPage() {
 
         <div className="mt-12">
           <div className="mb-6">
-            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Core Values</p>
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Service Pledge</p>
             <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">
               {coreValuesPage?.title || "Our guiding principles"}
             </h3>
@@ -113,7 +120,7 @@ export default function AboutPage() {
 
           {isLoading ? (
             <div className="rounded-[24px] border border-violet-200 bg-white p-6 text-slate-500">
-              Loading core values...
+              Loading service pledge...
             </div>
           ) : coreValues.length > 0 ? (
             <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
@@ -128,7 +135,7 @@ export default function AboutPage() {
             </div>
           ) : (
             <div className="rounded-[24px] border border-dashed border-violet-200 bg-violet-50/50 p-8 text-center text-sm font-medium text-slate-600">
-              Official core values will appear here once published.
+              The official service pledge will appear here once published.
             </div>
           )}
         </div>

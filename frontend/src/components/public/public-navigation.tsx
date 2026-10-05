@@ -19,8 +19,8 @@ export const publicNavItems: PublicNavItem[] = [
       {
         label: "About CDH",
         children: [
-          { href: "/about", label: "Mandate" },
-          { href: "/vision-mission", label: "Mission, Vision & Core Values" },
+          { href: "/mandate", label: "Mandate" },
+          { href: "/vision-mission", label: "Mission, Vision & Service Pledge" },
           { href: "/key-officials", label: "Key Officials" },
           { href: "/hospital-history", label: "Hospital History" },
           { href: "/organizational-chart", label: "CDH Organizational Structure" },

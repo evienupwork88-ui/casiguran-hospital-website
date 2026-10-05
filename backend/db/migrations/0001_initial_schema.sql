@@ -231,7 +231,7 @@ insert into site_settings (id) values (1);
 
 -- =====================================================================
 -- pages
--- About, Hospital History, Vision/Mission, Core Values, Key Officials,
+-- About, Hospital History, Vision/Mission, Service Pledge, Key Officials,
 -- and any future one-off institutional page. Seeded with 6 placeholder
 -- rows — real content must come from the hospital (see blueprint Section 4).
 -- =====================================================================
@@ -251,9 +251,10 @@ create trigger set_pages_updated_at
   for each row execute function set_updated_at();
 
 insert into pages (slug, title, body) values
+  ('mandate', 'Mandate', 'Official hospital mandate pending from Casiguran District Hospital.'),
   ('about', 'About Casiguran District Hospital', 'Content pending from Casiguran District Hospital.'),
   ('hospital-history', 'Hospital History / Kasaysayan ng Ospital', 'Content pending from Casiguran District Hospital.'),
   ('vision', 'Vision', 'Content pending from Casiguran District Hospital.'),
   ('mission', 'Mission', 'Content pending from Casiguran District Hospital.'),
-  ('core-values', 'Core Values', 'Content pending from Casiguran District Hospital.'),
+  ('service-pledge', 'Service Pledge', 'Content pending from Casiguran District Hospital.'),
   ('key-officials', 'Key Officials', 'Official key officials information pending from Casiguran District Hospital.');

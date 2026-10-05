@@ -18,6 +18,7 @@ type PublicShellProps = {
 
 const footerQuickLinks = [
   { href: "/", label: "Home" },
+  { href: "/mandate", label: "Mandate" },
   { href: "/about", label: "About" },
   { href: "/hospital-history", label: "Hospital History" },
   { href: "/vision-mission", label: "Vision & Mission" },
