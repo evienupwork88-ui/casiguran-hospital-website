@@ -160,7 +160,7 @@ create table documents (
   id             uuid primary key default gen_random_uuid(),
   title          text not null,
   description    text,
-  category       text not null check (category in ('report', 'org_chart', 'policy', 'other')),
+  category       text not null check (category in ('report', 'org_chart', 'policy', 'development_plan', 'other')),
   file_path      text not null,
   file_size      integer,
   mime_type      text,
@@ -231,9 +231,9 @@ insert into site_settings (id) values (1);
 
 -- =====================================================================
 -- pages
--- About, Hospital History, Vision/Mission, Core Values, and any future
--- one-off institutional page. Seeded with 4 placeholder rows — real
--- content must come from the hospital (see blueprint Section 4).
+-- About, Hospital History, Vision/Mission, Core Values, Key Officials,
+-- and any future one-off institutional page. Seeded with 6 placeholder
+-- rows — real content must come from the hospital (see blueprint Section 4).
 -- =====================================================================
 create table pages (
   id            uuid primary key default gen_random_uuid(),
@@ -253,5 +253,7 @@ create trigger set_pages_updated_at
 insert into pages (slug, title, body) values
   ('about', 'About Casiguran District Hospital', 'Content pending from Casiguran District Hospital.'),
   ('hospital-history', 'Hospital History / Kasaysayan ng Ospital', 'Content pending from Casiguran District Hospital.'),
-  ('vision-mission', 'Vision & Mission', 'Content pending from Casiguran District Hospital.'),
-  ('core-values', 'Core Values', 'Content pending from Casiguran District Hospital.');
+  ('vision', 'Vision', 'Content pending from Casiguran District Hospital.'),
+  ('mission', 'Mission', 'Content pending from Casiguran District Hospital.'),
+  ('core-values', 'Core Values', 'Content pending from Casiguran District Hospital.'),
+  ('key-officials', 'Key Officials', 'Official key officials information pending from Casiguran District Hospital.');

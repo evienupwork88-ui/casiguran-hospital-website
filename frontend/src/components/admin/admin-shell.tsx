@@ -6,7 +6,6 @@ import { useEffect, useRef, useState } from "react";
 import {
   CalendarDays,
   FileText,
-  FolderOpen,
   HeartPulse,
   LayoutDashboard,
   LogOut,
@@ -28,12 +27,12 @@ const navigation = [
   {
     section: "Content",
     items: [
+      { href: "/admin/content", label: "Public Site Content", icon: FileText },
       { href: "/admin/news", label: "News", icon: Newspaper },
       { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
       { href: "/admin/events", label: "Events", icon: CalendarDays },
       { href: "/admin/services", label: "Services", icon: HeartPulse },
       { href: "/admin/documents", label: "Documents", icon: FileText },
-      { href: "/admin/organizational-chart", label: "Organizational Chart", icon: FolderOpen },
       { href: "/admin/pages", label: "Pages", icon: FileText },
     ],
   },
@@ -56,12 +55,14 @@ export function AdminShell({
   children,
   user,
   onLogout,
+  onNavigationAttempt,
   isLoggingOut = false,
 }: {
   title: string;
   children: React.ReactNode;
   user?: AdminUserMeta;
   onLogout?: () => void | Promise<void>;
+  onNavigationAttempt?: (href: string) => boolean;
   isLoggingOut?: boolean;
 }) {
   const pathname = usePathname();
@@ -176,14 +177,21 @@ export function AdminShell({
                         <Link
                           key={item.href}
                           href={item.href}
-                          onClick={() => setMobileOpen(false)}
+                          onClick={(event) => {
+                            if (onNavigationAttempt?.(item.href)) {
+                              event.preventDefault();
+                              setMobileOpen(false);
+                              return;
+                            }
+                            setMobileOpen(false);
+                          }}
                           title={isCollapsed ? item.label : undefined}
                           aria-label={isCollapsed ? item.label : undefined}
                           className={[
                             "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
                             isCollapsed ? "justify-center px-2.5" : "",
                             isActive
-                              ? "bg-violet-100 text-violet-900 shadow-sm ring-1 ring-violet-200"
+                              ? "bg-violet-100 text-violet-900 shadow-sm ring-2 ring-[var(--gold-400)]"
                               : "text-violet-50/85 hover:bg-white/8 hover:text-white",
                           ].join(" ")}
                         >

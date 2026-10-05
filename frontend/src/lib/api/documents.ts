@@ -2,7 +2,7 @@ export type DocumentItem = {
   id: string;
   title: string;
   description: string | null;
-  category: "report" | "org_chart" | "policy" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
   filePath: string;
   fileSize: number | null;
   mimeType: string | null;
@@ -74,7 +74,7 @@ export async function uploadDocument(formData: FormData): Promise<DocumentItem> 
 export async function updateDocument(id: string, input: Partial<{
   title: string;
   description: string;
-  category: "report" | "org_chart" | "policy" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
   status: "draft" | "published";
   publishedAt: string;
 }>): Promise<DocumentItem> {
@@ -124,7 +124,7 @@ export async function deleteDocument(id: string): Promise<void> {
 export async function createDocument(input: {
   title: string;
   description?: string;
-  category?: "report" | "org_chart" | "policy" | "other";
+  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
   filePath: string;
   fileSize?: number;
   mimeType?: string;
@@ -153,4 +153,3 @@ export async function createDocument(input: {
   const data = await parseJson<{ item: DocumentItem }>(response);
   return data.item;
 }
-

@@ -24,7 +24,7 @@ export interface DocumentRecord {
   id: string;
   title: string;
   description: string | null;
-  category: "report" | "org_chart" | "policy" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
   filePath: string;
   fileSize: number | null;
   mimeType: string | null;
@@ -40,7 +40,7 @@ export interface DocumentRecord {
 export type UploadDocumentInput = {
   title: string;
   description?: string;
-  category?: "report" | "org_chart" | "policy" | "other";
+  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
   status?: "draft" | "published";
   publishedAt?: string | null;
   file: {
@@ -64,6 +64,10 @@ function fileTypeLabelFromCategory(category: string): string {
       return "Report";
     case "policy":
       return "Policy";
+    case "citizens_charter":
+      return "Citizen's Charter";
+    case "development_plan":
+      return "Hospital Development Plan";
     default:
       return "Document";
   }

@@ -4,7 +4,7 @@
 
 **Stack recap:** Next.js + TypeScript + Tailwind (frontend) · Node.js + Express + TypeScript REST API (backend) · Supabase (Postgres + Storage **only** — used server-side only) · Authentication is handled entirely in Express: bcrypt password hashes in `admin_users` + opaque, cookie-based server sessions with CSRF protection and role-based access control (see Section 6).
 
-**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, `services.department` kept optional/nullable pending hospital input, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for About/Hospital History/Vision/Mission/Core Values, optional `description` added to `documents`.
+**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, `services.department` kept optional/nullable pending hospital input, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for About/Hospital History/Vision/Mission/Core Values/Key Officials with Vision and Mission stored as separate rows and Key Officials separate from the organizational chart, optional `description` added to `documents`.
 
 ---
 
@@ -170,7 +170,7 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 
 ### `documents`
 - **Purpose:** downloadable public files — reports, citizen's charter, procurement notices, **and the org chart** (as `category = 'org_chart'`).
-- **Key fields:** `id`, `title`, `description` (optional), `category` (`report`\|`org_chart`\|`policy`\|`other`), `file_path` (Storage key, not a raw public URL), `file_size`, `mime_type`, `status`, `published_at`, `uploaded_by`, `created_at`.
+- **Key fields:** `id`, `title`, `description` (optional), `category` (`report`\|`org_chart`\|`policy`\|`citizens_charter`\|`development_plan`\|`other`), `file_path` (Storage key, not a raw public URL), `file_size`, `mime_type`, `status`, `published_at`, `uploaded_by`, `created_at`.
 - **Relationships:** `uploaded_by → admin_users`.
 - **Required:** `title`, `category`, `file_path`, `status`. `description` is nullable — a plain filename-style title is enough to publish.
 - **Publicly visible:** `title`, `description`, `category`, `published_at`, and a generated download link — published only. The raw `file_path` itself is never handed to the client directly (see Section 8).
@@ -194,7 +194,7 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 
 ### `pages`
 - **Purpose:** long-form institutional content — About, Hospital History, Vision/Mission, Core Values, and any future one-off page the hospital asks for — without needing a new table each time.
-- **Key fields:** `id`, `slug` (unique — `about`, `hospital-history`, `vision-mission`, `core-values`), `title`, `body`, `updated_at`, `updated_by`.
+- **Key fields:** `id`, `slug` (unique — `about`, `hospital-history`, `vision`, `mission`, `core-values`, `key-officials`), `title`, `body`, `updated_at`, `updated_by`.
 - **Relationships:** `updated_by → admin_users`.
 - **Required:** `slug`, `title`, `body`.
 - **Publicly visible:** `slug`, `title`, `body`.
@@ -256,7 +256,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 | PUT | `/api/admin/services/:id` | Update | required | editor, admin |
 | DELETE | `/api/admin/services/:id` | Delete | required | admin |
 
-### Pages (About / Vision / Mission / Core Values)
+### Pages (About / Hospital History / Vision / Mission / Core Values / Key Officials)
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
 | GET | `/api/public/pages/:slug` | Fetch one published page by slug | none | — |
@@ -264,7 +264,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 | GET | `/api/admin/pages/:id` | Get one for editing | required | editor, admin |
 | PUT | `/api/admin/pages/:id` | Update title/body | required | editor, admin |
 
-*No `POST`/`DELETE` for v1 — the initial set of pages (`about`, `hospital-history`, `vision-mission`, `core-values`) is seeded once during setup and only ever edited, not created or removed through the CMS. This keeps the feature to exactly what's needed rather than building general-purpose page management nobody asked for.*
+*No `POST`/`DELETE` for v1 — the initial set of pages (`about`, `hospital-history`, `vision`, `mission`, `core-values`) is seeded once during setup and only ever edited, not created or removed through the CMS. This keeps the feature to exactly what's needed rather than building general-purpose page management nobody asked for.*
 
 ### Site Settings
 | Method | Endpoint | Purpose | Auth | Role |
@@ -413,7 +413,7 @@ Your suggested progression holds up well; I've added one sub-phase (4.5) worth c
 - Added `pages` table for About/Vision/Mission/Core Values.
 - Added optional `description` to `documents`.
 - Security measures (CSRF, CORS, rate limiting, validation, headers, upload hardening) reconfirmed as-is.
-- **Added `hospital-history` as a fourth seeded row in `pages`** (slugs now: `about`, `hospital-history`, `vision-mission`, `core-values`). No new table — reuses the existing `pages` design exactly as-is (same fields, same API shape, same admin-editable pattern). Content must come from the hospital; nothing historical is invented.
+- **Added `hospital-history` as a fourth seeded row in `pages`** (slugs now: `about`, `hospital-history`, `vision`, `mission`, `core-values`). Vision and mission are stored as separate database rows but still render together on the public `/vision-mission` page. No new table — reuses the existing `pages` design exactly as-is (same fields, same API shape, same admin-editable pattern). Content must come from the hospital; nothing historical is invented.
 
 ## Still open
 - Hosting target for `frontend`/`backend`

@@ -5,21 +5,25 @@ import { PublicShell } from "@/components/public/site-shell";
 import { getPublicPage, type PageItem } from "@/lib/api/pages";
 
 export default function VisionMissionPage() {
-  const [vmPage, setVmPage] = useState<PageItem | null>(null);
+  const [visionPage, setVisionPage] = useState<PageItem | null>(null);
+  const [missionPage, setMissionPage] = useState<PageItem | null>(null);
   const [cvPage, setCvPage] = useState<PageItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [vmData, cvData] = await Promise.all([
-          getPublicPage("vision-mission").catch(() => null),
+        const [visionData, missionData, cvData] = await Promise.all([
+          getPublicPage("vision").catch(() => null),
+          getPublicPage("mission").catch(() => null),
           getPublicPage("core-values").catch(() => null),
         ]);
-        setVmPage(vmData);
+        setVisionPage(visionData);
+        setMissionPage(missionData);
         setCvPage(cvData);
       } catch {
-        setVmPage(null);
+        setVisionPage(null);
+        setMissionPage(null);
         setCvPage(null);
       } finally {
         setIsLoading(false);
@@ -33,43 +37,67 @@ export default function VisionMissionPage() {
     ? cvPage.body.split(/\n+/).map((v) => v.trim()).filter(Boolean)
     : [];
 
-  const vmParagraphs = vmPage?.body
-    ? vmPage.body.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+  const visionParagraphs = visionPage?.body
+    ? visionPage.body.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+    : [];
+
+  const missionParagraphs = missionPage?.body
+    ? missionPage.body.split(/\n+/).map((p) => p.trim()).filter(Boolean)
     : [];
 
   return (
     <PublicShell
-      title={vmPage?.title || "Vision, Mission & Core Values"}
+      title="Mission, Vision & Core Values"
       subtitle="Official institutional statements and guiding principles."
     >
       <section className="mx-auto max-w-6xl px-6 pb-16">
-        <div className="rounded-[30px] border border-violet-200 bg-white p-7 shadow-[0_18px_40px_rgba(76,29,149,0.05)] sm:p-8">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Institutional Mandate</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900 sm:text-4xl">
-            {vmPage?.title || "Vision & Mission"}
-          </h2>
-          {isLoading ? (
-            <p className="mt-4 text-base leading-8 text-slate-500">Loading vision and mission...</p>
-          ) : vmParagraphs.length > 0 ? (
-            <div className="mt-4 space-y-4">
-              {vmParagraphs.map((paragraph, index) => (
-                <p key={index} className="text-base leading-8 text-slate-600">
-                  {paragraph}
-                </p>
-              ))}
-            </div>
-          ) : (
-            <p className="mt-4 text-base leading-8 text-slate-600">
-              Official vision and mission statements will appear here once published.
-            </p>
-          )}
+        <div className="space-y-12">
+          <div className="rounded-[30px] border border-violet-200 bg-white p-7 shadow-[0_18px_40px_rgba(76,29,149,0.05)] sm:p-8">
+            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-violet-700 sm:text-4xl">
+              {visionPage?.title || "Vision"}
+            </h2>
+            {isLoading ? (
+              <p className="mt-4 text-base leading-8 text-slate-500">Loading vision...</p>
+            ) : visionParagraphs.length > 0 ? (
+              <div className="mt-4 space-y-4">
+                {visionParagraphs.map((paragraph, index) => (
+                  <p key={index} className="text-base leading-8 text-slate-600">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-base leading-8 text-slate-600">
+                Official vision statement will appear here once published.
+              </p>
+            )}
+          </div>
+          <div className="rounded-[30px] border border-violet-200 bg-white p-7 shadow-[0_18px_40px_rgba(76,29,149,0.05)] sm:p-8">
+            <h2 className="text-3xl font-semibold tracking-[-0.05em] text-violet-700 sm:text-4xl">
+              {missionPage?.title || "Mission"}
+            </h2>
+            {isLoading ? (
+              <p className="mt-4 text-base leading-8 text-slate-500">Loading mission...</p>
+            ) : missionParagraphs.length > 0 ? (
+              <div className="mt-4 space-y-4">
+                {missionParagraphs.map((paragraph, index) => (
+                  <p key={index} className="text-base leading-8 text-slate-600">
+                    {paragraph}
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-4 text-base leading-8 text-slate-600">
+                Official mission statement will appear here once published.
+              </p>
+            )}
+          </div>
         </div>
 
         <div className="mt-12 rounded-[30px] border border-violet-200 bg-white p-7 shadow-[0_18px_40px_rgba(76,29,149,0.05)] sm:p-8">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Core Values</p>
-          <h3 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">
+          <h2 className="text-3xl font-semibold tracking-[-0.05em] text-violet-700 sm:text-4xl">
             {cvPage?.title || "Guiding principles of service"}
-          </h3>
+          </h2>
           {isLoading ? (
             <p className="mt-4 text-slate-500">Loading core values...</p>
           ) : coreValues.length > 0 ? (

@@ -29,14 +29,9 @@ export default function OrganizationalChartPage() {
   return (
     <PublicShell
       title="Organizational Chart"
-      subtitle="The official hospital organizational chart is published here when made available by the institution."
+      subtitle="View or download the hospital's current chart."
     >
       <section className="mx-auto max-w-6xl px-6 pb-16">
-        <div className="mb-8 rounded-[28px] border border-violet-200 bg-white p-6 shadow-[0_18px_40px_rgba(76,29,149,0.05)]">
-          <p className="text-[0.72rem] font-semibold uppercase tracking-[0.24em] text-violet-700">Hospital structure</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">Official organizational chart</h2>
-        </div>
-
         {isLoading ? (
           <div className="rounded-[26px] border border-violet-200 bg-white p-10 text-center text-slate-600">
             Loading chart...
@@ -52,22 +47,17 @@ export default function OrganizationalChartPage() {
           </div>
         ) : (
           <div className="rounded-[28px] border border-violet-200 bg-white p-6 shadow-[0_18px_40px_rgba(76,29,149,0.05)]">
-            <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-violet-700">Current official chart</p>
-                <h3 className="mt-2 text-2xl font-semibold tracking-[-0.05em] text-slate-900">{chart.title}</h3>
-              </div>
-              <div className="flex flex-wrap gap-2">
+            <div className="mb-5 flex justify-end gap-2">
                 <a href={chartFileUrl} target="_blank" rel="noreferrer" className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">
                   View
                 </a>
                 <a href={chart.downloadUrl ?? chartFileUrl} download className="rounded-full border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100">
                   Download
                 </a>
-              </div>
             </div>
 
-            {chart.description ? (
+            {chart.description?.trim() &&
+            chart.description.trim().toLowerCase() !== "current official organizational chart for the public website." ? (
               <p className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">{chart.description}</p>
             ) : null}
 

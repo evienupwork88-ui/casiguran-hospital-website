@@ -49,6 +49,7 @@ export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     async function loadEvents() {
@@ -63,9 +64,9 @@ export default function EventsPage() {
     }
 
     loadEvents();
+    setNow(Date.now());
   }, []);
 
-  const now = Date.now();
   const upcomingEvents = events.filter((event) => {
     const reference = event.endAt || event.startAt;
     const time = new Date(reference).getTime();

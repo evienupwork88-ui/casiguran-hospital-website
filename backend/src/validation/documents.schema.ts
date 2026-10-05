@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const documentCategorySchema = z.enum(["report", "org_chart", "policy", "other"]);
+export const documentCategorySchema = z.enum(["report", "org_chart", "policy", "citizens_charter", "development_plan", "other"]);
 
 export const createDocumentSchema = z.object({
   title: z.string().trim().min(1, "Title is required"),

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { createAnnouncement, deleteAnnouncement, getAdminAnnouncements, updateAnnouncement, type AnnouncementItem } from "@/lib/api/announcements";
 import { useNotifications } from "@/components/providers/notification-provider";
@@ -25,7 +25,7 @@ export default function AdminAnnouncementsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
 
-  async function loadItems() {
+  const loadItems = useCallback(async () => {
     try {
       const data = await getAdminAnnouncements();
       setItems(data);
@@ -34,11 +34,11 @@ export default function AdminAnnouncementsPage() {
     } finally {
       setIsLoading(false);
     }
-  }
+  }, []);
 
   useEffect(() => {
-    loadItems();
-  }, []);
+    void loadItems();
+  }, [loadItems]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();

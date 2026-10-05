@@ -9,8 +9,10 @@ import { useNotifications } from "@/components/providers/notification-provider";
 const pageConfig = [
   { slug: "about", label: "About the Hospital" },
   { slug: "hospital-history", label: "Hospital History" },
-  { slug: "vision-mission", label: "Vision & Mission" },
+  { slug: "vision", label: "Vision" },
+  { slug: "mission", label: "Mission" },
   { slug: "core-values", label: "Core Values" },
+  { slug: "key-officials", label: "Key Officials" },
 ];
 
 export default function AdminPagesPage() {
@@ -28,7 +30,11 @@ export default function AdminPagesPage() {
         const data = await getAdminPages();
         setPages(data);
 
-        const firstPage = data.find((page) => page.slug === selectedSlug) ?? data[0];
+        const requestedSlug = new URLSearchParams(window.location.search).get("slug");
+        const firstPage =
+          data.find((page) => page.slug === requestedSlug) ??
+          data.find((page) => page.slug === pageConfig[0].slug) ??
+          data[0];
         if (firstPage) {
           setSelectedSlug(firstPage.slug);
           setForm({ title: firstPage.title, body: firstPage.body });

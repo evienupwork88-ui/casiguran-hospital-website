@@ -27,12 +27,29 @@ entirely — RLS is on as a deny-by-default safety net, not because
 anything currently relies on a policy), and seeds:
 - `site_settings` — one empty row (the app expects exactly one to
   always exist)
-- `pages` — four placeholder rows (`about`, `hospital-history`,
-  `vision-mission`, `core-values`), each with clearly-labeled
-  placeholder text until the hospital provides real content
+- `pages` — six placeholder rows (`about`, `hospital-history`,
+  `vision`, `mission`, `core-values`, `key-officials`), each with clearly-labeled
+  placeholder text until the hospital provides real content.
+  `vision` and `mission` are stored as separate records even though
+  they render together on the public `/vision-mission` page.
+  Key Officials has its own page content, separate from the
+  organizational chart document.
 
 Re-running the file will error on `CREATE TABLE` (tables already
 exist) — that's expected, it's not designed to be idempotent yet.
+
+### Updating an existing database
+
+For later schema changes, run only the new numbered migration in the
+Supabase SQL Editor. To add the Key Officials page to an existing
+database, run
+[`migrations/0005_key_officials_page.sql`](migrations/0005_key_officials_page.sql).
+To add the Hospital Development Plan document category to an existing
+database, run
+[`migrations/0006_documents_development_plan.sql`](migrations/0006_documents_development_plan.sql).
+To enable Citizen's Charter PDF uploads, run
+[`migrations/0003_documents_citizens_charter.sql`](migrations/0003_documents_citizens_charter.sql).
+Do not rerun the initial schema on an existing project.
 
 ## 3. Configure your local backend
 

@@ -72,7 +72,7 @@ export default function AboutPage() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+        <div className="mt-10 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Hospital History</p>
             <p className="mt-3 text-sm leading-7 text-slate-600">Explore the institutional story and milestones of the hospital.</p>
@@ -88,8 +88,15 @@ export default function AboutPage() {
             </Link>
           </div>
           <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
+            <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Key Officials</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">Meet the hospital officials and leadership team.</p>
+            <Link href="/key-officials" className="mt-4 inline-block text-sm font-semibold text-violet-700 hover:text-violet-800">
+              View key officials →
+            </Link>
+          </div>
+          <div className="rounded-[24px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
             <p className="text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-violet-700">Organizational Chart</p>
-            <p className="mt-3 text-sm leading-7 text-slate-600">View the official leadership and organizational structure.</p>
+            <p className="mt-3 text-sm leading-7 text-slate-600">View the hospital&apos;s official organizational structure.</p>
             <Link href="/organizational-chart" className="mt-4 inline-block text-sm font-semibold text-violet-700 hover:text-violet-800">
               View chart →
             </Link>

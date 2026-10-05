@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
             <div className="relative flex min-h-[220px] items-center justify-between gap-4 p-6 md:p-8">
               <div className="max-w-lg">
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">Casiguran District Hospital</p>
-                <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white md:text-4xl">Hospital administration dashboard</h2>
+                <h2 className="image-overlay-heading mt-3 text-2xl font-semibold tracking-[-0.03em] md:text-4xl">Hospital administration dashboard</h2>
                 <p className="mt-3 max-w-md text-sm leading-6 text-white md:text-base">
                   Maintain the hospital website, public updates, services, reports, and institutional pages from one place.
                 </p>
@@ -217,13 +217,13 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               stats.map((stat) => (
-                <div key={stat.label} className="border border-violet-200 bg-white p-5 shadow-[0_10px_24px_rgba(37,27,88,0.04)]">
+                <div key={stat.label} className="border border-[var(--gold-400)]/60 bg-white p-5 shadow-[0_10px_24px_rgba(37,27,88,0.04)]">
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">{stat.label}</p>
                       <p className="mt-4 text-3xl font-semibold tracking-[-0.06em] text-slate-900">{stat.count}</p>
                     </div>
-                    <span className="border border-violet-200 bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-violet-700">
+                    <span className="border border-[var(--gold-400)] bg-violet-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--gold-700)]">
                       {stat.meta}
                     </span>
                   </div>
