@@ -6,7 +6,7 @@ import { env } from "../config/env";
  * protection. A lighter, general limiter for the rest of /api/* is
  * applied globally in app.ts.
  */
-export const loginRateLimiter = rateLimit({
+const commonLoginLimit = {
   windowMs: env.rateLimitLoginWindowMinutes * 60 * 1000,
   limit: env.rateLimitLoginMax,
   standardHeaders: true,
@@ -17,4 +17,11 @@ export const loginRateLimiter = rateLimit({
       code: "RATE_LIMITED",
     },
   },
+};
+
+export const loginRateLimiter = rateLimit({
+  ...commonLoginLimit,
+  skipSuccessfulRequests: true,
 });
+
+export const passwordResetRateLimiter = rateLimit(commonLoginLimit);

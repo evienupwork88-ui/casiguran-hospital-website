@@ -6,7 +6,10 @@ import { getPublicPage, type PageItem } from "@/lib/api/pages";
 
 function toParagraphs(body?: string | null) {
   return body
-    ? body.split(/\n+/).map((p) => p.trim()).filter(Boolean)
+    ? body
+        .split(/\n\s*\n/)
+        .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").trim())
+        .filter(Boolean)
     : [];
 }
 
@@ -85,19 +88,19 @@ export default function VisionMissionPage() {
                 {section.page?.title || section.fallbackTitle}
               </h2>
               {isLoading ? (
-                <p className="mt-4 text-base leading-8 text-slate-500">
+                <p className="mt-4 text-base leading-6 text-slate-500">
                   {section.loadingText}
                 </p>
               ) : section.paragraphs.length > 0 ? (
-                <div className="mt-4 space-y-4">
+                <div className="mt-4 space-y-2">
                   {section.paragraphs.map((paragraph, index) => (
-                    <p key={index} className="text-base leading-8 text-slate-600">
+                    <p key={index} className="text-base leading-6 text-slate-600">
                       {paragraph}
                     </p>
                   ))}
                 </div>
               ) : (
-                <p className="mt-4 text-base leading-8 text-slate-600">
+                <p className="mt-4 text-base leading-6 text-slate-600">
                   {section.emptyText}
                 </p>
               )}

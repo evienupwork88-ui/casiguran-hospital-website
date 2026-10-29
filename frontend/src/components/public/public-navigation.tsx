@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown, Settings } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 
 export type PublicNavItem = {
   href?: string;
@@ -36,90 +36,46 @@ export const publicNavItems: PublicNavItem[] = [
       {
         label: "Corner",
         children: [
-          { href: "/documents?category=policy", label: "Patient Rights" },
+          { href: "/patient-rights", label: "Patient Rights" },
           { href: "/documents?category=policy", label: "Patient's Responsibilities" },
-          { href: "/documents?category=citizens_charter", label: "Citizen's Charter" },
-          { href: "/documents?category=policy", label: "Hospital Policy" },
+          { href: "/hospital-policy", label: "Hospital Policy" },
         ],
       },
-      {
-        label: "Out-Patient Department",
-        children: [
-          { href: "/services", label: "General Information" },
-          { href: "/events", label: "Clinic Schedule" },
-        ],
-      },
-      { href: "/services", label: "Emergency Department" },
+      { href: "/opd", label: "Out-Patient Department" },
+      { href: "/emergency-department", label: "Emergency Department" },
       {
         label: "Clinical Departments",
         children: [
-          { href: "/services", label: "Dental Department" },
-          { href: "/services", label: "Family and Community Medicine" },
-          { href: "/services", label: "Internal Medicine" },
-          { href: "/services", label: "Obstetrics and Gynecology" },
-          { href: "/services", label: "Pediatrics" },
+          { href: "/dental", label: "Dental Department" },
+          { href: "/family-community-medicine", label: "Family and Community Medicine" },
+          { href: "/general-medicine", label: "General Medicine" },
+          { href: "/obstetrics-and-gynecology", label: "Obstetrics and Gynecology" },
+          { href: "/pediatrics", label: "Pediatrics" },
         ],
       },
       {
         label: "Allied Health Professional Service",
         children: [
-          { href: "/services", label: "General Information" },
-          { href: "/services", label: "Health Information Management Department" },
-          { href: "/services", label: "Medical Social Service Department" },
-          { href: "/services", label: "Nutrition and Dietetics Department" },
-          { href: "/services", label: "Pharmacy Department" },
+          { href: "/himd", label: "Health Information Management Department" },
+          { href: "/medical-social-service", label: "Medical Social Service Department" },
+          { href: "/nutrition-and-dietetics", label: "Nutrition and Dietetics Department" },
+          { href: "/pharmacy", label: "Pharmacy Department" },
         ],
       },
       {
         label: "Ancillary Services",
         children: [
-          { href: "/services", label: "Pathology and Laboratories" },
-          { href: "/services", label: "Radiology" },
+          { href: "/pathology-laboratories", label: "Pathology and Laboratories" },
+          { href: "/radiology", label: "Radiology" },
         ],
       },
-      { href: "/services", label: "Rate and Fees" },
-      { href: "/services", label: "Nursing Service" },
+      { href: "/rate-fees", label: "Rate and Fees" },
+      { href: "/billing-claims", label: "Billing and Claims" },
+      { href: "/nursing-service", label: "Nursing Service" },
     ],
   },
-  {
-    label: "Programs",
-    children: [
-      { href: "/services", label: "Public Health Unit" },
-      { href: "/services", label: "Patient Safety" },
-      { href: "/services", label: "Gender and Development" },
-      { href: "/services", label: "Teen Wellness Center" },
-    ],
-  },
-  {
-    label: "Trainings and Research",
-    children: [
-      { href: "/documents", label: "Training" },
-      { href: "/documents", label: "Research" },
-    ],
-  },
-  {
-    label: "Procurement",
-    children: [
-      { href: "/documents", label: "BAC Resolution" },
-      { href: "/documents", label: "Bid Bulletin" },
-      { href: "/documents", label: "Bidding Documents" },
-      { href: "/documents", label: "Consignment" },
-      { href: "/documents", label: "Contract Agreement" },
-      { href: "/documents", label: "Invitation to Bid" },
-      { href: "/documents", label: "Notice of Award" },
-      { href: "/documents", label: "Notice to Proceed" },
-      { href: "/documents", label: "Pre-Bid Minutes" },
-      { href: "/documents", label: "Purchase Order" },
-      { href: "/documents", label: "Request for Quotation" },
-    ],
-  },
-  {
-    label: "News and Updates",
-    children: [
-      { href: "/news", label: "CDH News" },
-      { href: "/news", label: "CDH Updates" },
-    ],
-  },
+  { href: "/trainings", label: "Trainings" },
+  { href: "/news", label: "News and Updates" },
   {
     label: "Data Privacy",
     children: [
@@ -128,7 +84,6 @@ export const publicNavItems: PublicNavItem[] = [
     ],
   },
   { href: "/contact", label: "Contacts" },
-  { href: "/admin/dashboard", label: "Admin Console" },
 ];
 
 function isActive(pathname: string, item: PublicNavItem) {
@@ -136,16 +91,12 @@ function isActive(pathname: string, item: PublicNavItem) {
 }
 
 function MenuLink({ item, className = "", onClick }: { item: PublicNavItem; className?: string; onClick?: () => void }) {
-  const isAdmin = item.href?.startsWith("/admin") ?? false;
   return (
     <Link
       href={item.href ?? "#"}
-      target={isAdmin ? "_blank" : undefined}
-      rel={isAdmin ? "noopener noreferrer" : undefined}
       onClick={onClick}
       className={className}
     >
-      {isAdmin ? <Settings size={16} aria-hidden="true" /> : null}
       {item.label}
     </Link>
   );
@@ -167,7 +118,6 @@ export function PublicDesktopNavigation({ headerOverImage = false }: { headerOve
     >
       {publicNavItems.map((item) => {
         const active = isActive(pathname, item);
-        const isAdmin = item.href?.startsWith("/admin") ?? false;
 
         if (!item.children) {
           return (
@@ -180,11 +130,9 @@ export function PublicDesktopNavigation({ headerOverImage = false }: { headerOve
                   ? headerOverImage
                     ? "text-[#f2f3f4]"
                     : "text-violet-700"
-                  : isAdmin
-                    ? "ml-2 rounded-full border border-[var(--gold-400)] bg-violet-600 px-5 text-white shadow-[0_8px_18px_rgba(124,58,237,0.25)] hover:bg-violet-700"
-                    : headerOverImage
-                      ? "hover:text-white"
-                      : "hover:text-violet-700",
+                  : headerOverImage
+                    ? "hover:text-white"
+                    : "hover:text-violet-700",
               ].join(" ")}
             />
           );
@@ -263,7 +211,7 @@ export function PublicMobileNavigation({ headerOverImage = false, onNavigate }: 
   return (
     <nav
       aria-label="Mobile navigation"
-      className={["flex max-h-[70vh] flex-col gap-1 overflow-y-auto text-sm font-medium", headerOverImage ? "text-white" : "text-slate-700"].join(" ")}
+      className={["flex max-h-[70dvh] flex-col gap-1 overscroll-contain overflow-y-auto text-sm font-medium", headerOverImage ? "text-white" : "text-slate-700"].join(" ")}
     >
       {publicNavItems.map((item) =>
         item.children ? (

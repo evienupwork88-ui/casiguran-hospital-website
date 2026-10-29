@@ -12,18 +12,29 @@ const contentSections = [
   },
   {
     title: "Patient Care",
-    description: "Manage the service and department content used by Patient Care, including outpatient, clinical, allied health, ancillary, and nursing sections.",
-    links: [{ label: "Services and departments", href: "/admin/services" }],
+    description: "Manage dedicated Out-Patient, Emergency Department, Radiology, General Medicine, Obstetrics and Gynecology, Pediatrics, Dental, Family and Community Medicine, Medical Social Service, Nutrition and Dietetics, Pharmacy, Pathology and Laboratories, Nursing Service, HIMD, and Billing and Claims pages.",
+    links: [
+      { label: "Out-Patient Department page", href: "/admin/opd" },
+      { label: "Emergency Department page", href: "/admin/emergency-department" },
+      { label: "Radiology page", href: "/admin/radiology" },
+      { label: "General Medicine page", href: "/admin/general-medicine" },
+      { label: "Obstetrics and Gynecology page", href: "/admin/obstetrics-and-gynecology" },
+      { label: "Pediatrics page", href: "/admin/pediatrics" },
+      { label: "Dental Department page", href: "/admin/dental" },
+      { label: "Family and Community Medicine page", href: "/admin/family-community-medicine" },
+      { label: "Medical Social Service Department page", href: "/admin/medical-social-service" },
+      { label: "Nutrition and Dietetics Department page", href: "/admin/nutrition-and-dietetics" },
+      { label: "Pharmacy Department page", href: "/admin/pharmacy" },
+      { label: "Pathology and Laboratories page", href: "/admin/pathology-laboratories" },
+      { label: "Nursing Service page", href: "/admin/nursing-service" },
+      { label: "Health Information Management Department page", href: "/admin/himd" },
+      { label: "Billing and Claims page", href: "/admin/billing-claims" },
+    ],
   },
   {
-    title: "Programs",
-    description: "Use the Services manager for Public Health Unit, Patient Safety, Gender and Development, and Teen Wellness Center entries.",
-    links: [{ label: "Manage programs", href: "/admin/services" }],
-  },
-  {
-    title: "Trainings and Research",
-    description: "Publish training and research files through the existing Documents manager.",
-    links: [{ label: "Manage documents", href: "/admin/documents" }],
+    title: "Trainings",
+    description: "Create and publish training entries with a description, an optional image, and an external link.",
+    links: [{ label: "Manage trainings", href: "/admin/trainings" }],
   },
   {
     title: "Procurement",
@@ -32,11 +43,8 @@ const contentSections = [
   },
   {
     title: "News and Updates",
-    description: "Publish CDH News and CDH Updates through the existing news and announcements managers.",
-    links: [
-      { label: "CDH News", href: "/admin/news" },
-      { label: "CDH Updates", href: "/admin/announcements" },
-    ],
+    description: "Publish and manage CDH news posts and announcements in one combined manager.",
+    links: [{ label: "Manage News and Updates", href: "/admin/news" }],
   },
   {
     title: "Data Privacy",
@@ -46,7 +54,10 @@ const contentSections = [
   {
     title: "Contacts",
     description: "Maintain the CMS-driven address, phone, email, map, Facebook link, office hours, and emergency service settings.",
-    links: [{ label: "Manage contact settings", href: "/admin/settings" }],
+    links: [
+      { label: "Manage contact settings", href: "/admin/settings" },
+      { label: "Review messages", href: "/admin/contact-messages" },
+    ],
   },
 ];
 

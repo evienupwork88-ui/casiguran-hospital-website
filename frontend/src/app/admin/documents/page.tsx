@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { deleteDocument, getAdminDocuments, type DocumentItem, updateDocument, uploadDocument } from "@/lib/api/documents";
 import { useNotifications } from "@/components/providers/notification-provider";
+import { CmsBulkDeleteButton, CmsSpreadsheetImport } from "@/components/admin/cms-bulk-tools";
 
 const emptyForm = {
   title: "",
@@ -22,14 +23,43 @@ const CATEGORY_LABELS: Record<string, string> = {
   citizens_charter: "Citizen's Charter",
   org_chart: "Org Chart",
   development_plan: "Hospital Development Plan",
+  patient_rights: "Patient Rights",
   other: "Other",
 };
 
+function defaultTitleForCategory(category: DocumentItem["category"]) {
+  return CATEGORY_LABELS[category] ?? "Document";
+}
+
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "webp", "gif", "svg"];
 
-function validateFile(file: File): string | null {
+type UploadTarget = "create" | "edit" | "navigation";
+
+function UploadProgress({ percentage }: { percentage: number | null }) {
+  return (
+    <div className="rounded-lg border border-violet-100 bg-violet-50 px-3 py-2" aria-live="polite">
+      <p className="text-sm font-medium text-violet-900">
+        {percentage === 100
+          ? "Upload sent. Waiting for the server to finish saving..."
+          : percentage === null
+            ? "Uploading file..."
+            : `Uploading file: ${percentage}%`}
+      </p>
+      <progress
+        max={100}
+        value={percentage ?? undefined}
+        aria-label="File upload progress"
+        className="mt-2 h-2 w-full accent-violet-700"
+      />
+    </div>
+  );
+}
+
+function validateFile(file: File, category: DocumentItem["category"]): string | null {
   const extension = file.name.toLowerCase().split(".").pop();
-  const limit = ["jpg", "jpeg", "png", "webp"].includes(extension ?? "") ? 5 : 15;
+  const isImage = ["jpg", "jpeg", "png", "webp"].includes(extension ?? "") ||
+    (category === "org_chart" && extension === "svg");
+  const limit = category === "org_chart" && isImage ? 25 : isImage ? 5 : 15;
   if (file.size > limit * 1024 * 1024) return `File exceeds the ${limit}MB limit for this file type.`;
   return null;
 }
@@ -90,10 +120,12 @@ export default function AdminDocumentsPage() {
   const editFileInputRef = useRef<HTMLInputElement | null>(null);
   const editPreviewUrlRef = useRef<string | null>(null);
   const [items, setItems] = useState<DocumentItem[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [form, setForm] = useState(emptyForm);
   const [editForm, setEditForm] = useState(emptyForm);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [editSelectedFile, setEditSelectedFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<{ target: UploadTarget; percentage: number | null } | null>(null);
   const [editPreviewUrl, setEditPreviewUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,6 +137,10 @@ export default function AdminDocumentsPage() {
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
   const [navigationError, setNavigationError] = useState("");
   const { showSuccess, showError } = useNotifications();
+
+  async function uploadWithProgress(formData: FormData, target: UploadTarget) {
+    return uploadDocument(formData, (percentage) => setUploadProgress({ target, percentage }));
+  }
 
   const hasUnsavedChanges = isCreateDirty || isEditDirty;
   const hasUnsavedChangesRef = useRef(hasUnsavedChanges);
@@ -140,6 +176,7 @@ export default function AdminDocumentsPage() {
     try {
       const data = await getAdminDocuments();
       setItems(data);
+      setSelectedIds([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to load documents.");
     } finally {
@@ -233,17 +270,12 @@ export default function AdminDocumentsPage() {
     event.preventDefault();
     setError("");
 
-    if (!form.title.trim()) {
-      setError("Please enter a title.");
-      return;
-    }
-
     if (!selectedFile) {
       setError("Please choose a document file.");
       return;
     }
 
-    const fileError = validateFile(selectedFile);
+    const fileError = validateFile(selectedFile, form.category);
     if (fileError) {
       setError(fileError);
       return;
@@ -253,12 +285,12 @@ export default function AdminDocumentsPage() {
 
     try {
       const formData = new FormData();
-      formData.append("title", form.title.trim());
+      formData.append("title", form.title.trim() || defaultTitleForCategory(form.category));
       formData.append("description", form.description);
       formData.append("category", form.category);
       formData.append("status", form.status);
       formData.append("file", selectedFile);
-      await uploadDocument(formData);
+      await uploadWithProgress(formData, "create");
       showSuccess(form.status === "published" ? "Document published." : "Document saved as a draft.", "Saved");
       setForm(emptyForm);
       setSelectedFile(null);
@@ -272,19 +304,22 @@ export default function AdminDocumentsPage() {
       setError(message);
       showError(message, "Unable to save document");
     } finally {
+      setUploadProgress(null);
       setIsSubmitting(false);
     }
   }
 
   // Shared by "Save changes" and "Save changes & leave". Throws on failure.
-  async function saveEdit() {
+  async function saveEdit(target: UploadTarget = "edit") {
     if (!editingId) return;
 
-    if (!editForm.title.trim()) throw new Error("Title is required.");
-    const payload = { ...editForm, title: editForm.title.trim() };
+    const payload = {
+      ...editForm,
+      title: editForm.title.trim() || defaultTitleForCategory(editForm.category),
+    };
 
     if (editSelectedFile) {
-      const fileError = validateFile(editSelectedFile);
+      const fileError = validateFile(editSelectedFile, editForm.category);
       if (fileError) throw new Error(fileError);
 
       const formData = new FormData();
@@ -293,7 +328,7 @@ export default function AdminDocumentsPage() {
       formData.append("category", payload.category);
       formData.append("status", payload.status);
       formData.append("file", editSelectedFile);
-      const replacement = await uploadDocument(formData);
+      const replacement = await uploadWithProgress(formData, target);
 
       try {
         await deleteDocument(editingId);
@@ -337,6 +372,7 @@ export default function AdminDocumentsPage() {
       setError(message);
       showError(message, "Unable to update document");
     } finally {
+      setUploadProgress(null);
       setIsSubmitting(false);
     }
   }
@@ -364,21 +400,21 @@ export default function AdminDocumentsPage() {
 
     try {
       if (isEditDirty && editingId) {
-        await saveEdit();
+        await saveEdit("navigation");
       }
 
       if (isCreateDirty) {
-        if (form.title.trim() && selectedFile) {
-          const fileError = validateFile(selectedFile);
+        if (selectedFile) {
+          const fileError = validateFile(selectedFile, form.category);
           if (fileError) throw new Error(fileError);
 
           const formData = new FormData();
-          formData.append("title", form.title.trim());
+          formData.append("title", form.title.trim() || defaultTitleForCategory(form.category));
           formData.append("description", form.description);
           formData.append("category", form.category);
           formData.append("status", "draft");
           formData.append("file", selectedFile);
-          await uploadDocument(formData);
+          await uploadWithProgress(formData, "navigation");
           window.localStorage.removeItem(localDraftKey);
         } else {
           const draftForm = { ...form, status: "draft" as const };
@@ -396,6 +432,7 @@ export default function AdminDocumentsPage() {
     } catch (err) {
       setNavigationError(err instanceof Error ? err.message : "Unable to save your changes.");
     } finally {
+      setUploadProgress(null);
       setIsSubmitting(false);
     }
   }
@@ -418,7 +455,7 @@ export default function AdminDocumentsPage() {
   const leaveMessage = [
     isEditDirty && editingId ? "Your document edits will be saved." : null,
     isCreateDirty
-      ? form.title.trim() && selectedFile
+      ? selectedFile
         ? "Your new document and file will be saved as a draft in Documents."
         : "Your new-document form fields will be saved in this browser. You will need to select the file again when you return."
       : null,
@@ -445,9 +482,19 @@ export default function AdminDocumentsPage() {
     <AdminShell title="Documents" onNavigationAttempt={requestNavigation}>
       <div className="mb-6 flex items-center justify-between">
         <p className="text-slate-600">
-          Manage public documents, reports, policies, the Citizen&apos;s Charter, the organizational chart, and the Hospital Development Plan.
+          Manage public documents, reports, policies, the Citizen&apos;s Charter, the organizational chart, Patient Rights, and the Hospital Development Plan.
         </p>
       </div>
+
+      <section className="mb-8 flex flex-col gap-4 rounded-2xl border border-violet-200 bg-violet-50/70 p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Hospital History</h2>
+          <p className="mt-1 text-sm text-slate-600">Edit the hospital history story and upload its background photo.</p>
+        </div>
+        <Link href="/admin/documents/hospital-history" className="inline-flex shrink-0 justify-center rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-800">
+          Manage Hospital History
+        </Link>
+      </section>
 
       {restoredDraft ? (
         <div role="status" className="mb-5 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
@@ -461,13 +508,14 @@ export default function AdminDocumentsPage() {
             Title
             <input
               list="document-title-suggestions"
+              maxLength={200}
               value={form.title}
+              placeholder={`Optional — defaults to ${defaultTitleForCategory(form.category)}`}
               onChange={(event) => {
                 setForm((current) => ({ ...current, title: event.target.value }));
                 setIsCreateDirty(true);
               }}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-              required
             />
             <datalist id="document-title-suggestions">
               <option value="Hospital Development Plan" />
@@ -489,6 +537,7 @@ export default function AdminDocumentsPage() {
               <option value="citizens_charter">Citizen&apos;s Charter</option>
               <option value="org_chart">Org chart</option>
               <option value="development_plan">Hospital Development Plan</option>
+              <option value="patient_rights">Patient Rights</option>
               <option value="other">Other</option>
             </select>
           </label>
@@ -516,20 +565,32 @@ export default function AdminDocumentsPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+              accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.svg,application/pdf,image/png,image/jpeg,image/webp,image/svg+xml"
               onChange={(event) => {
-                setSelectedFile(event.target.files?.[0] ?? null);
+                const file = event.target.files?.[0] ?? null;
+                setSelectedFile(file);
+                if (file?.name.toLowerCase().endsWith(".svg")) {
+                  setForm((current) => ({ ...current, category: "org_chart" }));
+                }
                 setIsCreateDirty(true);
                 setRestoredDraft(false);
               }}
               className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-violet-700 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
               required
             />
+            <span className="mt-1 block text-xs font-normal text-slate-500">
+              {form.category === "org_chart"
+                ? "Org chart images, including SVG: maximum 25MB. SVG is sanitized on upload and stays sharp when enlarged. Org chart PDFs and other documents: maximum 15MB."
+                : "Images: maximum 5MB. Documents: maximum 15MB. SVG files are available for Org chart and set that category automatically."}
+            </span>
           </label>
+
+          {uploadProgress?.target === "create" ? <UploadProgress percentage={uploadProgress.percentage} /> : null}
 
           <label className="block text-sm font-medium text-slate-700 md:col-span-2">
             Description
             <textarea
+              maxLength={5000}
               value={form.description}
               onChange={(event) => {
                 setForm((current) => ({ ...current, description: event.target.value }));
@@ -557,10 +618,25 @@ export default function AdminDocumentsPage() {
         </div>
       </form>
 
+      <CmsSpreadsheetImport resource="documents" onImported={loadItems} />
+      <div className="mb-3 flex items-center justify-between">
+        <label className="flex items-center gap-2 text-sm text-slate-600">
+          <input type="checkbox" checked={items.length > 0 && selectedIds.length === items.length} onChange={(event) => setSelectedIds(event.target.checked ? items.map((item) => item.id) : [])} />
+          Select all documents
+        </label>
+        <CmsBulkDeleteButton resource="documents" ids={selectedIds} itemLabel="document" onDeleted={async () => {
+          if (editingId && selectedIds.includes(editingId)) {
+            closeEdit();
+            setEditForm(emptyForm);
+          }
+          await loadItems();
+        }} />
+      </div>
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[720px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
+              <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all documents" checked={items.length > 0 && selectedIds.length === items.length} onChange={(event) => setSelectedIds(event.target.checked ? items.map((item) => item.id) : [])} /></th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Title</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Category</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
@@ -570,16 +646,20 @@ export default function AdminDocumentsPage() {
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">Loading documents...</td>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-500">Loading documents...</td>
               </tr>
             ) : items.length === 0 ? (
               <tr>
-                <td colSpan={4} className="px-5 py-8 text-center text-sm text-slate-500">No documents yet.</td>
+                <td colSpan={5} className="px-5 py-8 text-center text-sm text-slate-500">No documents yet.</td>
               </tr>
             ) : (
               items.map((item) => (
                 <tr key={item.id} className="hover:bg-slate-50">
-                  <td className="px-5 py-4 text-sm font-medium text-slate-900">{item.title}</td>
+                  <td className="px-4 py-4"><input type="checkbox" aria-label={`Select document ${item.title}`} checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td>
+                  <td className="px-5 py-4 text-sm font-medium text-slate-900">
+                    <span>{item.title}</span>
+                    <code className="mt-1 block max-w-xs break-all text-xs font-normal text-slate-500">{item.filePath}</code>
+                  </td>
                   <td className="px-5 py-4 text-sm text-slate-700">{CATEGORY_LABELS[item.category] ?? item.category}</td>
                   <td className="px-5 py-4 text-sm text-slate-700">
                     <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">
@@ -611,7 +691,7 @@ export default function AdminDocumentsPage() {
 
       {editingId ? (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/55 p-4" role="presentation">
-          <section role="dialog" aria-modal="true" aria-labelledby="edit-document-title" className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+          <section role="dialog" aria-modal="true" aria-labelledby="edit-document-title" className="max-h-[90dvh] w-full max-w-3xl overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
             <div className="mb-6 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">Document details</p>
@@ -622,7 +702,7 @@ export default function AdminDocumentsPage() {
             <form onSubmit={handleEditSubmit} className="space-y-5">
               <label className="block text-sm font-medium text-slate-700">
                 Title
-                <input required value={editForm.title} onChange={(event) => {
+                <input maxLength={200} value={editForm.title} placeholder={`Optional — defaults to ${defaultTitleForCategory(editForm.category)}`} onChange={(event) => {
                   setEditForm((current) => ({ ...current, title: event.target.value }));
                   setIsEditDirty(true);
                 }} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
@@ -639,6 +719,7 @@ export default function AdminDocumentsPage() {
                     <option value="citizens_charter">Citizen&apos;s Charter</option>
                     <option value="org_chart">Org chart</option>
                     <option value="development_plan">Hospital Development Plan</option>
+                    <option value="patient_rights">Patient Rights</option>
                     <option value="other">Other</option>
                   </select>
                 </label>
@@ -659,18 +740,28 @@ export default function AdminDocumentsPage() {
                 <p className="mt-1 text-xs text-slate-500">
                   Current file: {currentFileName}. Leave this empty to keep it.
                 </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {editForm.category === "org_chart"
+                    ? "Org chart images, including SVG: maximum 25MB. SVG is sanitized on upload and stays sharp when enlarged. Org chart PDFs and other documents: maximum 15MB."
+                    : "Images: maximum 5MB. Documents: maximum 15MB."}
+                </p>
                 <input
                   id="replacement-document-file"
                   ref={editFileInputRef}
                   type="file"
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,application/pdf,image/png,image/jpeg,image/webp"
+                  accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.webp,.svg,application/pdf,image/png,image/jpeg,image/webp,image/svg+xml"
                   onChange={(event) => {
-                    setEditFile(event.target.files?.[0] ?? null);
+                    const file = event.target.files?.[0] ?? null;
+                    setEditFile(file);
+                    if (file?.name.toLowerCase().endsWith(".svg")) {
+                      setEditForm((current) => ({ ...current, category: "org_chart" }));
+                    }
                     setIsEditDirty(true);
                   }}
                   className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 file:mr-3 file:rounded-full file:border-0 file:bg-violet-700 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-white"
                 />
                 {editSelectedFile ? <p className="mt-2 text-sm text-violet-700">Replacement selected: {editSelectedFile.name}</p> : null}
+                {uploadProgress?.target === "edit" ? <div className="mt-3"><UploadProgress percentage={uploadProgress.percentage} /></div> : null}
 
                 {/* Preview: replacement file kung may napili, kung wala ang kasalukuyang file */}
                 <div className="mt-4">
@@ -710,14 +801,14 @@ export default function AdminDocumentsPage() {
               </div>
               <label className="block text-sm font-medium text-slate-700">
                 Description
-                <textarea value={editForm.description} onChange={(event) => {
+                <textarea maxLength={5000} value={editForm.description} onChange={(event) => {
                   setEditForm((current) => ({ ...current, description: event.target.value }));
                   setIsEditDirty(true);
                 }} className="mt-2 min-h-28 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
               </label>
               {error ? <div role="alert" className="border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div> : null}
               <div className="flex justify-end gap-3">
-                <button type="button" onClick={requestCloseEdit} className="border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancel</button>
+                <button type="button" disabled={isSubmitting} onClick={requestCloseEdit} className="border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60">Cancel</button>
                 <button type="submit" disabled={isSubmitting} className="bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white hover:bg-violet-800 disabled:opacity-60">{isSubmitting ? "Saving..." : "Save changes"}</button>
               </div>
             </form>
@@ -731,6 +822,7 @@ export default function AdminDocumentsPage() {
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-700">Unsaved changes</p>
             <h2 id="save-draft-title" className="mt-2 text-xl font-semibold text-slate-950">Save before leaving?</h2>
             <p className="mt-3 text-sm leading-6 text-slate-600">{leaveMessage}</p>
+            {uploadProgress?.target === "navigation" ? <div className="mt-4"><UploadProgress percentage={uploadProgress.percentage} /></div> : null}
             {navigationError ? <div role="alert" className="mt-4 border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{navigationError}</div> : null}
             <div className="mt-6 flex flex-wrap justify-end gap-2">
               <button type="button" disabled={isSubmitting} onClick={() => setPendingNavigation(null)} className="border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Stay</button>

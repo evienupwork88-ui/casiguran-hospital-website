@@ -11,7 +11,6 @@ import { getAdminDocuments, type DocumentItem } from "@/lib/api/documents";
 import { getAdminEvents, type EventItem } from "@/lib/api/events";
 import { getAdminNews, type NewsItem } from "@/lib/api/news";
 import { getAdminPages, type PageItem } from "@/lib/api/pages";
-import { getAdminServices, type ServiceItem } from "@/lib/api/services";
 
 type DashboardStat = {
   label: string;
@@ -62,37 +61,34 @@ export default function AdminDashboardPage() {
 
     async function loadDashboardData() {
       try {
-        const [news, announcements, events, services, documents, pages] = await Promise.all([
+        const [news, announcements, events, documents, pages] = await Promise.all([
           getAdminNews(),
           getAdminAnnouncements(),
           getAdminEvents(),
-          getAdminServices(),
           getAdminDocuments(),
           getAdminPages(),
         ]);
 
         const nextStats: DashboardStat[] = [
-          { label: "News", count: news.length, href: "/admin/news", accent: "violet", meta: "Latest updates" },
-          { label: "Announcements", count: announcements.length, href: "/admin/announcements", accent: "amber", meta: "Public notices" },
+          { label: "News and Updates", count: news.length + announcements.length, href: "/admin/news", accent: "violet", meta: "Public posts and notices" },
           { label: "Events", count: events.length, href: "/admin/events", accent: "sky", meta: "Upcoming activities" },
-          { label: "Services", count: services.length, href: "/admin/services", accent: "emerald", meta: "Care offerings" },
           { label: "Documents", count: documents.length, href: "/admin/documents", accent: "slate", meta: "Reports and files" },
           { label: "Pages", count: pages.length, href: "/admin/pages", accent: "purple", meta: "Institutional pages" },
         ];
 
         const combined: RecentItem[] = [
           ...news.map((item: NewsItem) => ({
-            id: item.id,
+            id: `news-${item.id}`,
             title: item.title,
-            section: "News",
+            section: "News and Updates",
             href: "/admin/news",
             updatedAt: item.updatedAt ?? item.publishedAt ?? null,
           })),
           ...announcements.map((item: AnnouncementItem) => ({
-            id: item.id,
+            id: `announcement-${item.id}`,
             title: item.title,
-            section: "Announcements",
-            href: "/admin/announcements",
+            section: "News and Updates",
+            href: "/admin/news",
             updatedAt: item.updatedAt ?? item.publishAt ?? null,
           })),
           ...events.map((item: EventItem) => ({
@@ -101,13 +97,6 @@ export default function AdminDashboardPage() {
             section: "Events",
             href: "/admin/events",
             updatedAt: item.updatedAt ?? item.startAt ?? null,
-          })),
-          ...services.map((item: ServiceItem) => ({
-            id: item.id,
-            title: item.name,
-            section: "Services",
-            href: "/admin/services",
-            updatedAt: item.updatedAt ?? null,
           })),
           ...documents.map((item: DocumentItem) => ({
             id: item.id,
@@ -186,7 +175,7 @@ export default function AdminDashboardPage() {
                 <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-white">Casiguran District Hospital</p>
                 <h2 className="image-overlay-heading mt-3 text-2xl font-semibold tracking-[-0.03em] md:text-4xl">Hospital administration dashboard</h2>
                 <p className="mt-3 max-w-md text-sm leading-6 text-white md:text-base">
-                  Maintain the hospital website, public updates, services, reports, and institutional pages from one place.
+                  Maintain the hospital website, public updates, department pages, reports, and institutional pages from one place.
                 </p>
               </div>
             </div>
@@ -249,10 +238,7 @@ export default function AdminDashboardPage() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Link href="/admin/news" className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-100">
-                <p className="text-sm font-semibold text-violet-900">Create News</p>
-              </Link>
-              <Link href="/admin/announcements" className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-100">
-                <p className="text-sm font-semibold text-violet-900">Create Announcement</p>
+                <p className="text-sm font-semibold text-violet-900">Create News or Update</p>
               </Link>
               <Link href="/admin/events" className="rounded-2xl border border-violet-200 bg-violet-50 p-4 text-left transition hover:border-violet-300 hover:bg-violet-100">
                 <p className="text-sm font-semibold text-violet-900">Create Event</p>

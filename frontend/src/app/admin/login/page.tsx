@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 import { useNotifications } from "@/components/providers/notification-provider";
 import { login } from "@/lib/api/auth";
 
@@ -52,6 +53,7 @@ export default function AdminLoginPage() {
             <input
               id="email"
               type="email"
+              maxLength={254}
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -69,6 +71,7 @@ export default function AdminLoginPage() {
               <input
                 id="password"
                 type={showPassword ? "text" : "password"}
+                maxLength={128}
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
@@ -101,6 +104,11 @@ export default function AdminLoginPage() {
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
         </form>
+        <div className="mt-5 text-center">
+          <Link href="/admin/forgot-password" className="text-sm font-medium text-violet-700 hover:text-violet-800">
+            Forgot password?
+          </Link>
+        </div>
       </div>
     </main>
   );

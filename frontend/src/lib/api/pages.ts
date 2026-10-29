@@ -1,8 +1,12 @@
+import { getCsrfToken } from "./auth";
+
 export type PageItem = {
   id: string;
   slug: string;
   title: string;
   body: string;
+  coverImageUrl?: string | null;
+  coverImages?: { url: string }[];
   updatedAt: string;
   updatedBy: string | null;
 };
@@ -51,16 +55,14 @@ export async function getAdminPages(): Promise<PageItem[]> {
 }
 
 export async function updatePage(slug: string, input: { title: string; body: string }): Promise<PageItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/pages/${slug}`, {
@@ -70,6 +72,50 @@ export async function updatePage(slug: string, input: { title: string; body: str
     body: JSON.stringify(input),
   });
 
+  const data = await parseJson<{ item: PageItem }>(response);
+  return data.item;
+}
+
+export async function updateHospitalHistoryCover(formData: FormData): Promise<PageItem> {
+  const csrfToken = getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
+
+  const response = await fetch(`${API_BASE_URL}/api/admin/pages/hospital-history/cover-image`, {
+    method: "PUT",
+    credentials: "include",
+    headers,
+    body: formData,
+  });
+  const data = await parseJson<{ item: PageItem }>(response);
+  return data.item;
+}
+
+export async function addHospitalHistoryCoverImages(files: File[]): Promise<PageItem> {
+  const csrfToken = getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
+  const formData = new FormData();
+  files.forEach((file) => formData.append("images", file));
+  const response = await fetch(`${API_BASE_URL}/api/admin/pages/hospital-history/cover-images`, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: formData,
+  });
+  const data = await parseJson<{ item: PageItem }>(response);
+  return data.item;
+}
+
+export async function removeHospitalHistoryCoverImage(index: number): Promise<PageItem> {
+  const csrfToken = getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
+  const response = await fetch(`${API_BASE_URL}/api/admin/pages/hospital-history/cover-images/${index}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers,
+  });
   const data = await parseJson<{ item: PageItem }>(response);
   return data.item;
 }

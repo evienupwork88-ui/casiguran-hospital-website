@@ -6,7 +6,30 @@ export interface AuthenticatedAdmin {
   id: string;
   email: string;
   fullName: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  nameExtension: string;
   role: "admin" | "editor";
+}
+
+function mapAuthenticatedAdmin(admin: Record<string, any>): AuthenticatedAdmin {
+  const firstName = admin.first_name ?? "";
+  const middleName = admin.middle_name ?? "";
+  const lastName = admin.last_name ?? "";
+  const nameExtension = admin.name_extension ?? "";
+  const fullName = [firstName, middleName, lastName, nameExtension].filter(Boolean).join(" ") || admin.full_name;
+
+  return {
+    id: admin.id,
+    email: admin.email,
+    fullName,
+    firstName,
+    middleName,
+    lastName,
+    nameExtension,
+    role: admin.role,
+  };
 }
 
 /**
@@ -21,7 +44,7 @@ export async function verifyCredentials(
 ): Promise<AuthenticatedAdmin> {
   const { data: admin, error } = await supabase
     .from("admin_users")
-    .select("id, email, password_hash, full_name, role, is_active")
+    .select("id, email, password_hash, full_name, first_name, middle_name, last_name, name_extension, role, is_active")
     .eq("email", email)
     .maybeSingle();
 
@@ -49,27 +72,17 @@ export async function verifyCredentials(
     .update({ last_login_at: new Date().toISOString() })
     .eq("id", admin.id);
 
-  return {
-    id: admin.id,
-    email: admin.email,
-    fullName: admin.full_name,
-    role: admin.role,
-  };
+  return mapAuthenticatedAdmin(admin);
 }
 
 export async function getAdminById(id: string): Promise<AuthenticatedAdmin | null> {
   const { data: admin } = await supabase
     .from("admin_users")
-    .select("id, email, full_name, role, is_active")
+    .select("id, email, full_name, first_name, middle_name, last_name, name_extension, role, is_active")
     .eq("id", id)
     .maybeSingle();
 
   if (!admin || !admin.is_active) return null;
 
-  return {
-    id: admin.id,
-    email: admin.email,
-    fullName: admin.full_name,
-    role: admin.role,
-  };
+  return mapAuthenticatedAdmin(admin);
 }

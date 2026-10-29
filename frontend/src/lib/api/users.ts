@@ -1,7 +1,13 @@
+import { getCsrfToken } from "./auth";
+
 export type StaffUser = {
   id: string;
   email: string;
   fullName: string;
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  nameExtension: string;
   role: "admin" | "editor";
   isActive: boolean;
   createdAt: string;
@@ -33,21 +39,21 @@ export async function getAdminUsers(): Promise<StaffUser[]> {
 
 export async function createUser(input: {
   email: string;
-  fullName: string;
-  role?: "admin" | "editor";
+  firstName: string;
+  middleName: string;
+  lastName: string;
+  nameExtension: string;
   password: string;
   isActive?: boolean;
 }): Promise<StaffUser> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/users`, {
@@ -63,21 +69,21 @@ export async function createUser(input: {
 
 export async function updateUser(id: string, input: {
   email?: string;
-  fullName?: string;
-  role?: "admin" | "editor";
+  firstName?: string;
+  middleName?: string;
+  lastName?: string;
+  nameExtension?: string;
   isActive?: boolean;
   password?: string;
 }): Promise<StaffUser> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
@@ -92,16 +98,14 @@ export async function updateUser(id: string, input: {
 }
 
 export async function deactivateUser(id: string): Promise<StaffUser> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {

@@ -4,7 +4,7 @@
 
 **Stack recap:** Next.js + TypeScript + Tailwind (frontend) · Node.js + Express + TypeScript REST API (backend) · Supabase (Postgres + Storage **only** — used server-side only) · Authentication is handled entirely in Express: bcrypt password hashes in `admin_users` + opaque, cookie-based server sessions with CSRF protection and role-based access control (see Section 6).
 
-**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, `services.department` kept optional/nullable pending hospital input, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for Mandate/About/Hospital History/Vision/Mission/Service Pledge/Key Officials with Vision and Mission stored as separate rows and Key Officials separate from the organizational chart, optional `description` added to `documents`.
+**Change log:** v1 locked in the following decisions after review — document-based org chart confirmed, custom bcrypt/session auth instead of Supabase Auth, new `pages` table added for Mandate/About/Hospital History/Vision/Mission/Service Pledge with Vision and Mission stored as separate rows, optional `description` added to `documents`.
 
 ---
 
@@ -43,7 +43,6 @@ frontend/
 │   │   ├── hospital-history/page.tsx
 │   │   ├── vision-mission/page.tsx
 │   │   ├── vision-mission/page.tsx       # Vision / Mission / Service Pledge
-│   │   ├── services/page.tsx
 │   │   ├── news/page.tsx
 │   │   ├── news/[slug]/page.tsx
 │   │   ├── announcements/page.tsx
@@ -58,7 +57,6 @@ frontend/
 │       ├── announcements/...
 │       ├── events/...
 │       ├── documents/...
-│       ├── services/...
 │       ├── pages/{page.tsx, [id]/edit/page.tsx}    # About / Hospital History / Vision / Mission / Service Pledge
 │       ├── settings/page.tsx
 │       └── users/page.tsx          # role-gated: admin only
@@ -68,7 +66,7 @@ frontend/
 │   └── ui/                         # shared primitives (Button, Badge, Input, Modal)
 ├── lib/
 │   ├── api/                        # ALL fetch calls live here — one file per domain
-│   │   ├── news.ts, announcements.ts, events.ts, documents.ts, services.ts, pages.ts, auth.ts
+│   │   ├── news.ts, announcements.ts, events.ts, documents.ts, pages.ts, auth.ts
 │   ├── types/                      # TS types mirroring backend response shapes
 │   └── utils/
 ├── styles/globals.css              # Tailwind + design tokens as CSS variables
@@ -79,7 +77,7 @@ frontend/
 
 **Where API calls live:** exclusively in `lib/api/*`. No component or page ever calls `fetch()` directly. Each file wraps the calls for one backend domain (base URL, `credentials: 'include'` for cookies, consistent error shape). This is the single place that would change if the API's base URL or response format ever shifts.
 
-**A deliberate non-decision:** Next.js supports its own `app/api/*` route handlers. We will **not** use them for business logic — doing so would quietly recreate a second backend and blur the clean frontend/backend separation you asked for. The only thing `middleware.ts` does is a cheap, UX-level redirect (no valid-looking session cookie → bounce to `/admin/login`). It is *not* a security boundary — the real authorization check happens on every request inside Express, because middleware running at the edge can't be trusted as the sole gatekeeper.
+**A deliberate non-decision:** Next.js supports its own `app/api/*` route handlers. We will **not** use them for business logic — doing so would quietly recreate a second backend and blur the clean frontend/backend separation you asked for. The Next.js `proxy.ts` checks the backend session before rendering protected admin pages, but the backend remains the authorization boundary: every admin API independently validates the opaque session and role. Configure the shared session-cookie domain if frontend and API are deployed on separate subdomains.
 
 **Loading / error / empty states:** every data-driven view needs three explicit states, not just a happy path:
 - **Loading** — a skeleton or spinner (Next.js `loading.tsx` per route segment for server-rendered public pages; local `status` state for client-rendered admin forms/tables).
@@ -101,8 +99,8 @@ backend/
 │   ├── routes/
 │   │   ├── index.ts
 │   │   ├── auth.routes.ts
-│   │   ├── public/  (news, announcements, events, documents, services, settings).routes.ts
-│   │   └── admin/   (news, announcements, events, documents, services, settings, users, media).routes.ts
+│   │   ├── public/  (news, announcements, events, documents, settings).routes.ts
+│   │   └── admin/   (news, announcements, events, documents, settings, users, media).routes.ts
 │   ├── controllers/                # parse request, call service, shape response — no business logic
 │   ├── services/                   # actual business logic + queries live here
 │   ├── middleware/
@@ -126,16 +124,16 @@ backend/
 
 ## 4. Database Design (conceptual — no SQL yet)
 
-Kept intentionally minimal: **9 tables**. No separate org-chart table — the org chart is a `documents` row with `category = 'org_chart'` (the hospital supplies the official PDF/image; nothing about departments, positions, or personnel is modeled or invented — see the note under `documents` below). No separate table for About/Vision/Mission either — those live in the new `pages` table.
+Kept intentionally minimal: **11 operational tables**, plus `audit_logs` for admin accountability and security events. No separate org-chart table — the org chart is a `documents` row with `category = 'org_chart'` (the hospital supplies the official PDF/image). Key Officials uses its own four structured leadership profiles; it does not infer details from the organizational chart. About/Vision/Mission and similar editorial content live in the `pages` table.
 
 ### `admin_users`
 - **Purpose:** hospital staff/admin accounts that can log into the CMS.
-- **Key fields:** `id`, `email` (unique), `password_hash` (bcrypt), `full_name`, `role` (`admin` \| `editor`), `is_active`, `created_at`, `last_login_at`.
+- **Key fields:** `id`, `email` (unique), `password_hash` (bcrypt), `first_name`, `middle_name`, `last_name`, `name_extension`, `full_name` (derived compatibility value), `role` (`admin` \| `editor`), `is_active`, `created_at`, `last_login_at`.
 - **Relationships:** referenced by `sessions.admin_user_id` and by `author_id`/`uploaded_by` columns on content tables.
-- **Required:** `email`, `password_hash`, `full_name`, `role`.
+- **Required:** `email`, `password_hash`, `first_name`, `last_name`, `role`.
 - **Publicly visible:** none by default (optionally just `full_name` as a news byline — a call we can make later).
 - **Admin-only:** everything, `password_hash` above all — it's never returned in any API response, including to the account's own owner.
-- **Note:** at launch this table will hold exactly one row (you, as `admin`). `editor` rows get added later through the Users endpoints once hospital staff are ready to help manage content.
+- **Note:** a database unique index allows exactly one `admin` role; migration 0011 preserves the admin with the most recent login and demotes any additional admins to editors. The user-management UI only creates editors, and multiple editors are allowed.
 
 ### `sessions`
 - **Purpose:** server-side session store so logins are revocable, not just stateless tokens.
@@ -145,11 +143,11 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 - **Publicly visible / admin-only:** entirely internal; not exposed via any CRUD UI (a future "log out all devices" feature could read it).
 
 ### `news_posts`
-- **Purpose:** news articles for the public News section.
-- **Key fields:** `id`, `title`, `slug` (unique), `excerpt`, `body`, `cover_image_url`, `status` (`draft`\|`published`), `published_at`, `author_id`, `created_at`, `updated_at`.
+- **Purpose:** public News and Updates feed previews; an optional `external_url` links a preview to the original social post, otherwise the news item opens as an on-site article. News posts and announcements keep their separate data models and APIs but share one public feed and one Admin manager.
+- **Key fields:** `id`, `title`, `slug` (unique), `excerpt`, `body`, `cover_image_url`, `external_url`, `status` (`draft`\|`published`), `published_at`, `author_id`, `created_at`, `updated_at`.
 - **Relationships:** `author_id → admin_users`.
 - **Required:** `title`, `slug`, `body`, `status`.
-- **Publicly visible:** `title`, `slug`, `excerpt`, `body`, `cover_image_url`, `published_at` — **only where `status = published`**.
+- **Publicly visible:** `title`, `slug`, `excerpt`, `body`, `cover_image_url`, `external_url`, `published_at` — **only where `status = published`**.
 - **Admin-only:** `status`, `author_id`, anything still in `draft`.
 
 ### `announcements`
@@ -170,20 +168,12 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 
 ### `documents`
 - **Purpose:** downloadable public files — reports, citizen's charter, procurement notices, **and the org chart** (as `category = 'org_chart'`).
-- **Key fields:** `id`, `title`, `description` (optional), `category` (`report`\|`org_chart`\|`policy`\|`citizens_charter`\|`development_plan`\|`other`), `file_path` (Storage key, not a raw public URL), `file_size`, `mime_type`, `status`, `published_at`, `uploaded_by`, `created_at`.
+- **Key fields:** `id`, `title` (defaults to category label when omitted), `description` (optional), `category` (`report`\|`org_chart`\|`policy`\|`citizens_charter`\|`development_plan`\|`patient_rights`\|`other`), `file_path` (Storage key, not a raw public URL), `file_size`, `mime_type`, `status`, `published_at`, `uploaded_by`, `created_at`.
 - **Relationships:** `uploaded_by → admin_users`.
 - **Required:** `title`, `category`, `file_path`, `status`. `description` is nullable — a plain filename-style title is enough to publish.
 - **Publicly visible:** `title`, `description`, `category`, `published_at`, and a generated download link — published only. The raw `file_path` itself is never handed to the client directly (see Section 8).
 - **Admin-only:** `file_path`, `uploaded_by`, `status`, `file_size`/`mime_type`.
 - **Org chart specifics:** the hospital provides the official file as-is — no departments, positions, hierarchy, or names are modeled or entered by hand. "Replacing" the chart later just means an admin/editor uploads a new file against the same `category = 'org_chart'` entry; whether that updates the existing row's `file_path` or archives the old row and inserts a new one is a small implementation detail for Phase 7, not a schema question.
-
-### `services`
-- **Purpose:** hospital departments/services listing (OPD, ER, Laboratory, etc.).
-- **Key fields:** `id`, `name`, `description`, `department` (optional), `icon_or_image_url` (optional), `display_order`, `is_active`, `created_at`, `updated_at`.
-- **Required:** `name`, `description`.
-- **Publicly visible:** `name`, `description`, `department` (if set), `icon_or_image_url` (if set), `display_order` — active only.
-- **Admin-only:** `is_active`, timestamps.
-- **Note on `department`:** nullable for v1 — how the hospital actually groups its services hasn't been confirmed, so the field exists in the schema but isn't required or assumed. If the hospital later confirms real groupings, the Services page can switch from a flat list to grouped sections without a schema change — just start populating the column.
 
 ### `site_settings`
 - **Purpose:** single-row table for global public info (address, phone, email, Facebook link, office hours, map embed).
@@ -194,19 +184,26 @@ Kept intentionally minimal: **9 tables**. No separate org-chart table — the or
 
 ### `pages`
 - **Purpose:** long-form institutional content — About, Hospital History, Vision, Mission, Service Pledge, and any future one-off page the hospital asks for — without needing a new table each time.
-- **Key fields:** `id`, `slug` (unique — `mandate`, `about`, `hospital-history`, `vision`, `mission`, `service-pledge`, `key-officials`), `title`, `body`, `updated_at`, `updated_by`.
+- **Key fields:** `id`, `slug` (unique — `mandate`, `about`, `hospital-history`, `vision`, `mission`, `service-pledge`), `title`, `body`, optional `cover_image_path` for the Hospital History background photo, `updated_at`, `updated_by`.
 - **Relationships:** `updated_by → admin_users`.
 - **Required:** `slug`, `title`, `body`.
 - **Publicly visible:** `slug`, `title`, `body`.
 - **Admin-only:** `updated_at`, `updated_by`.
 - **Why this instead of `site_settings`:** `site_settings` is structured, single-value config (a phone number, an address) rendered into fixed UI slots. About/Hospital History/Vision/Mission is editorial prose that changes shape and grows over time — letting `site_settings` absorb it would mean adding a new text column every time the hospital wants one more page, which is the kind of accretion this review was meant to catch. `pages` absorbs all of that with zero future schema changes: a new page is just a new row.
+
+### `key_officials`
+- **Purpose:** the four fixed leadership profiles shown on the public Key Officials page.
+- **Key fields:** `id`, `slug` (`chief-of-hospital`, `medical-service`, `nursing-services`, `out-patient-service`), `first_name`, `middle_name`, `last_name`, `name_extension`, `name` (derived compatibility value), `position`, `photo_path` (Supabase Storage key), `display_order`, `updated_at`, `updated_by`.
+- **Required:** one seeded row for each of the four slots; names and photos remain empty until provided by the hospital.
+- **Publicly visible:** `name`, `position`, photo URL (short-lived signed link), and order.
+- **Admin-only:** `photo_path`, `updated_at`, `updated_by`.
 - **Content provenance (applies to `hospital-history` specifically, same principle as the org chart):** the body text must come from the hospital, not be drafted or inferred. Until the hospital provides and approves the actual history, the seeded row ships with clearly-labeled placeholder text (e.g. "Content pending from Casiguran District Hospital") — never invented dates, founders, or milestones.
 - **One naming note, not a decision made for you:** you referred to this page as "Hospital History / Kasaysayan ng Ospital." The current `pages` schema holds one `title` and one `body` per row — fine if the Filipino name is just a subtitle/label on an otherwise single-language page, but a genuine bilingual version (separate English and Filipino body text) would need either two rows (`hospital-history-en` / `hospital-history-fil`) or per-locale columns — a small but real schema choice, not something to assume silently. Flagged in "Still open" below rather than decided here.
 
-### `audit_logs` *(recommended, but deferrable to Phase 8 — not needed to start building)*
-- **Purpose:** accountability trail — who published, edited, or deleted what.
-- **Key fields:** `id`, `admin_user_id`, `action`, `entity_type`, `entity_id`, `metadata` (jsonb), `created_at`.
-- **Publicly visible:** none. **Admin-only**, and arguably visible only to the `admin` role, not `editor`.
+### `audit_logs`
+- **Purpose:** accountability and incident-response trail for admin changes, authentication events, and denied admin API requests.
+- **Key fields:** `id`, nullable `actor_id` and `actor_email`, `event_type`, `action`, `method`, `route`, `status_code`, `ip_address`, `user_agent`, and `occurred_at`. Request bodies, passwords, and tokens are never recorded.
+- **Publicly visible:** none. Reading the history is restricted to the `admin` role; the application exposes no update or delete operation for log entries.
 
 ---
 
@@ -218,8 +215,41 @@ Split by prefix so auth/rate-limit/CORS policy is easy to reason about per zone:
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
 | POST | `/api/auth/login` | Verify credentials, start a session | none | — |
+| POST | `/api/auth/forgot-password` | Send a time-limited email OTP | none | — |
+| POST | `/api/auth/reset-password` | Verify OTP and replace password | none | — |
 | POST | `/api/auth/logout` | End the current session | required | any |
 | GET | `/api/auth/me` | Return current user (id, name, role) | required | any |
+
+### Contact Messages
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| POST | `/api/contact` (also `/api/public/contact-messages`) | Submit a categorized Contact Us message | none | — |
+| GET | `/api/admin/contact-messages` | List messages for staff triage | required | editor, admin |
+| GET | `/api/admin/contact-messages/notifications` | Return unread count and up to five recent message previews | required | editor, admin |
+| GET | `/api/admin/contact-messages/assignees` | List active staff for assignment | required | editor, admin |
+| PUT | `/api/admin/contact-messages/:id` | Update assignment, action, remarks, status, or archive state | required | editor, admin |
+
+The admin header polls the notification summary every 30 seconds while visible and shows unread messages in its bell menu.
+
+Contact submissions are plain text only, validated server-side, limited to one per IP per five minutes in a single backend instance, and store request IP/user agent for audit. The in-memory limiter must be replaced with shared storage (e.g. Upstash Redis) before running multiple API instances. Turnstile is not currently enabled; implement and verify tokens server-side before relying on it for bot protection.
+
+### FAQs
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| GET | `/api/faqs?active=true` | Return active FAQs in display order; cached for five minutes | none | — |
+| GET | `/api/admin/faqs` | List all FAQs | required | editor, admin |
+| POST | `/api/admin/faqs` | Create FAQ | required | editor, admin |
+| PUT | `/api/admin/faqs/:id` | Update FAQ | required | editor, admin |
+| PATCH | `/api/admin/faqs/:id/archive` | Deactivate FAQ without deleting it | required | editor, admin |
+
+### Editor Change Approval
+Editor-created or edited public content, including uploads and deletes, is queued as a change request. The existing `admin` role is the Super Admin and can inspect the proposed values, then approve and apply or reject directly from the admin notification bell. Admin actions remain immediate; contact-message triage remains outside this approval flow. Staged uploads are held in a private `cdh-approval-staging` bucket until applied or rejected.
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| GET | `/api/admin/change-requests` | List pending and approved-but-not-applied editor requests | required | admin |
+| POST | `/api/admin/change-requests/:id/approve` | Approve a proposed change before applying it | required | admin |
+| POST | `/api/admin/change-requests/:id/reject` | Reject a proposed change with an optional reason | required | admin |
+| GET | `/api/admin/change-requests/:id/files/:index` | Retrieve a private staged file for application | required | admin |
 
 ### News
 | Method | Endpoint | Purpose | Auth | Role |
@@ -247,16 +277,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 
 *No separate "organizational information" endpoint exists — it's `/api/public/documents?category=org_chart`, consistent with the minimal-tables decision in Section 4.*
 
-### Services
-| Method | Endpoint | Purpose | Auth | Role |
-|---|---|---|---|---|
-| GET | `/api/public/services` | List active services | none | — |
-| GET | `/api/admin/services` | List all | required | editor, admin |
-| POST | `/api/admin/services` | Create | required | editor, admin |
-| PUT | `/api/admin/services/:id` | Update | required | editor, admin |
-| DELETE | `/api/admin/services/:id` | Delete | required | admin |
-
-### Pages (Mandate / About / Hospital History / Vision / Mission / Service Pledge / Key Officials)
+### Pages (Mandate / About / Vision / Mission / Service Pledge)
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
 | GET | `/api/public/pages/:slug` | Fetch one published page by slug | none | — |
@@ -264,7 +285,19 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 | GET | `/api/admin/pages/:id` | Get one for editing | required | editor, admin |
 | PUT | `/api/admin/pages/:id` | Update title/body | required | editor, admin |
 
-*No `POST`/`DELETE` for v1 — the initial set of pages (`mandate`, `about`, `hospital-history`, `vision`, `mission`, `service-pledge`, `key-officials`) is seeded once during setup and only ever edited, not created or removed through the CMS. This keeps the feature to exactly what's needed rather than building general-purpose page management nobody asked for.*
+*No `POST`/`DELETE` for v1 — the fixed institutional pages are seeded once during setup. Hospital History content is managed from the Documents admin area because it also requires a background image.*
+
+### Key Officials
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| GET | `/api/public/key-officials` | List the four public profiles | none | — |
+| GET | `/api/admin/key-officials` | List profiles for management | required | editor, admin |
+| PUT | `/api/admin/key-officials/:slug` | Update name, position, and optional profile photo | required | editor, admin |
+
+Password recovery uses Gmail SMTP with a Google App Password. OTPs are
+stored as keyed hashes, expire after ten minutes, allow at most five
+verification attempts, and successful resets revoke all active sessions
+for the account.
 
 ### Site Settings
 | Method | Endpoint | Purpose | Auth | Role |
@@ -295,7 +328,7 @@ Same shape as News (list/detail public + full admin CRUD), same role pattern: **
 
 **Roles: exactly two — `admin` and `editor`. No `viewer`.**
 
-Reasoning: the public site is already fully readable without an account, so there's no scenario here that needs "logged-in but read-only" access — that's what a `viewer` role is normally for. Adding one now would be a role with nothing to do. Two roles map cleanly onto real hospital structure: **editor** = day-to-day content staff (creates/edits news, announcements, events, services, documents, pages), **admin** = full system and content-management access, including staff accounts and admin-level settings. At launch there is exactly one account — you, as `admin`. `editor` accounts get created through the Users endpoints once hospital staff are ready to help manage content; the role isn't hypothetical, it's just unused until then.
+Reasoning: the public site is already fully readable without an account, so there's no scenario here that needs "logged-in but read-only" access — that's what a `viewer` role is normally for. Adding one now would be a role with nothing to do. Two roles map cleanly onto real hospital structure: **editor** = day-to-day content staff (creates/edits news, announcements, events, documents, pages), **admin** = full system and content-management access, including staff accounts and admin-level settings. At launch there is exactly one account — you, as `admin`. `editor` accounts get created through the Users endpoints once hospital staff are ready to help manage content; the role isn't hypothetical, it's just unused until then.
 
 **Authentication provider: none — handled directly in Express.** Supabase is used only for Postgres and Storage. Credentials are verified in-house with bcrypt rather than through Supabase Auth, because for a handful of total staff accounts, adding a second, external account system on top of our own `admin_users`/`sessions` tables would be more moving parts for the same result — one account store instead of two, with no loss of security (bcrypt is the same algorithm Supabase Auth uses internally).
 
@@ -323,7 +356,7 @@ Each mechanism below is tied to *where* it actually applies — not included jus
 - **SameSite=Lax (not Strict)** — Strict would break an admin clicking a link from outside the site straight into a logged-in `/admin` page, which is a real workflow. Lax still blocks the classic cross-site form-POST CSRF vector, but — as you noted — it does **not** cover every cross-site request path, which is exactly why CSRF tokens are still required below.
 - **CSRF protection** — applies only to state-changing admin requests (POST/PUT/DELETE) that rely on the cookie for auth; public GET endpoints need none. Mechanism: double-submit cookie — a non-HttpOnly `csrf_token` cookie is readable by our own frontend JS and echoed back as a custom header on mutating requests; the server checks the header against the expected value. A cross-site attacker can make the browser attach cookies, but can't read the CSRF cookie's value to forge the header (blocked by same-origin policy).
 - **CORS** — allowlist exactly the deployed frontend origin (and localhost during dev), `credentials: true`, never a wildcard. This only matters for the admin API surface in practice, since public GET endpoints don't carry credentials anyway.
-- **Rate limiting** — strictest on `/api/auth/login` (e.g. ~5–10 attempts per IP per 15 minutes) to blunt brute-force attempts; a lighter general limit on the rest of `/api/*` mainly guards against basic scraping/abuse, since most of that traffic is public and read-only anyway.
+- **Rate limiting** — login allows five failed attempts per IP per 15 minutes. Contact submissions allow one per IP per five minutes in a single backend process; use shared Redis before scaling API instances. A lighter general limit on the rest of `/api/*` guards against basic scraping/abuse.
 - **Input validation** — Zod schemas on every endpoint accepting a body or query params that affect a query, enforced server-side in middleware before the controller runs. Frontend form validation is UX only; it stops nothing malicious on its own.
 - **Security headers** — Helmet globally, for sane defaults (`X-Content-Type-Options`, `Referrer-Policy`, HSTS in production, frame-ancestors). The Content-Security-Policy needs specific thought once we pick how to embed the Facebook page and the map — those third-party embeds will need explicit `frame-src`/`connect-src` allowances, which we should decide concretely rather than leaving CSP overly permissive "just in case."
 - **File upload security** — see Section 8.
@@ -370,12 +403,16 @@ No real values — names and purpose only.
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-only key — never sent to the frontend |
 | `DATABASE_URL` | Direct Postgres connection, if used alongside the Supabase client |
 | `SESSION_COOKIE_NAME` | Name of the session cookie |
+| `SESSION_COOKIE_DOMAIN` | Optional shared parent domain when frontend and API use different subdomains |
 | `SESSION_SECRET` | Used to hash/sign session and CSRF tokens |
 | `SESSION_TTL_HOURS` | Session lifetime |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowlist |
+| `TIMEZONE` | Display timezone for server-clock clients (default `Asia/Manila`) |
+| `TRUST_PROXY_HOPS` | Trusted reverse-proxy count; set to the exact Hostinger proxy hop count in production |
 | `RATE_LIMIT_LOGIN_MAX` / `RATE_LIMIT_LOGIN_WINDOW_MINUTES` | Login throttle config |
 | `MAX_UPLOAD_IMAGE_MB` / `MAX_UPLOAD_DOC_MB` | Upload size caps |
 | `STORAGE_BUCKET_NAME` | Supabase Storage bucket |
+| `APPROVAL_STAGING_BUCKET_NAME` | Private bucket used to hold files awaiting Super Admin review |
 | `LOG_LEVEL` | Logger verbosity |
 
 **`frontend/.env.local`**
@@ -383,6 +420,10 @@ No real values — names and purpose only.
 |---|---|
 | `NEXT_PUBLIC_API_BASE_URL` | Where the frontend sends API requests |
 | `NEXT_PUBLIC_SITE_NAME` | Display-only config |
+| `ADMIN_PATH` | Admin route prefix; configure the same value in local and production environments |
+| `SESSION_COOKIE_NAME` | Must match the backend name for server-side admin page checks |
+
+Admin paths and `robots.txt` are not authentication mechanisms. Next.js Proxy checks the backend session before rendering protected admin pages, and every admin API independently enforces backend authentication and role checks. If frontend and API use different subdomains, configure the session cookie domain to a common parent so the frontend can verify it server-side.
 
 Note: things like the Facebook page URL, address, and map embed are **content**, not config — they come from `site_settings` via the API, not from environment variables, so the hospital can update them without a redeploy.
 
@@ -400,14 +441,13 @@ Your suggested progression holds up well; I've added one sub-phase (4.5) worth c
 5. **Public website** — Next.js public routes, shared layout/nav/footer, wired to the public API, loading/error/empty states, placeholder content throughout.
 6. **Admin CMS** — Next.js admin shell, login screen, dashboard, CRUD forms per domain, following the Phase 4.5 pattern on the backend as each domain is added.
 7. **File/document management** — Storage integration, upload/download flow, wiring into news/event cover images and the reports/documents page.
-8. **Testing / security hardening** — OWASP checklist pass, CSP tuning for the map/Facebook embeds, rate-limit tuning, a manual "try to break my own auth/CSRF" pass, add `audit_logs` if not already in place.
+8. **Testing / security hardening** — OWASP checklist pass, CSP tuning for the map/Facebook embeds, rate-limit tuning, and a manual "try to break my own auth/CSRF" pass.
 9. **Deployment** — resolve the hosting question, configure production env vars, HTTPS, DNS, backups — then a **hospital review of the fully placeholder-populated site** before any real content goes in.
 
 ---
 
 ## Resolved this session
 - Org chart: document-based (`documents`, `category = 'org_chart'`), no invented structure — confirmed.
-- `services.department`: kept optional/nullable pending hospital input on how services are actually grouped.
 - Roles: `admin` + `editor` confirmed, one `admin` account at launch.
 - Authentication: bcrypt + `admin_users.password_hash` + Express sessions — Supabase Auth dropped from the design.
 - Added `pages` table for About/Vision/Mission/Service Pledge.
@@ -420,7 +460,6 @@ Your suggested progression holds up well; I've added one sub-phase (4.5) worth c
 - Draft → published only, or an approval step before publishing
 - Public contact form (needs outbound email) — yes or no for v1
 - Storage access model — Option A (public bucket) vs Option B (private + signed URLs)
-- Whether services should be grouped by department, once the hospital confirms how they actually organize services
 - The hospital's actual logo file, for eventual production use
 - Actual Hospital History text — page ships with placeholder content until the hospital provides and approves it
 - Whether "Hospital History / Kasaysayan ng Ospital" needs true bilingual content (separate EN/FIL text) or is just a bilingual page title over single-language body text

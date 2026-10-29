@@ -5,7 +5,7 @@
 Official public information website for Casiguran District Hospital
 (Casiguran, Aurora, Philippines). The site gives the public access to
 hospital information — About, Hospital History, Vision/Mission, Core
-Values, Services, News, Announcements, Events, Reports/Documents,
+Values, News, Announcements, Events, Reports/Documents,
 Organizational Chart, and Contact/Location — and includes an
 authenticated admin CMS so hospital staff can manage that content
 without editing code.

@@ -12,7 +12,8 @@ import bcrypt from "bcrypt";
  * Reads from backend/.env:
  *   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY  — required, connects as
  *     the service role (bypasses RLS by design — see docs/blueprint.md)
- *   ADMIN_SEED_EMAIL, ADMIN_SEED_PASSWORD, ADMIN_SEED_NAME — required,
+ *   ADMIN_SEED_EMAIL, ADMIN_SEED_PASSWORD, ADMIN_SEED_FIRST_NAME,
+ *   ADMIN_SEED_LAST_NAME — required; middle name and extension are optional.
  *     the account being created. Never committed anywhere.
  *
  * Running this successfully also serves as the "can Express reach the
@@ -23,7 +24,10 @@ const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ADMIN_SEED_EMAIL = process.env.ADMIN_SEED_EMAIL;
 const ADMIN_SEED_PASSWORD = process.env.ADMIN_SEED_PASSWORD;
-const ADMIN_SEED_NAME = process.env.ADMIN_SEED_NAME ?? "Admin";
+const ADMIN_SEED_FIRST_NAME = process.env.ADMIN_SEED_FIRST_NAME;
+const ADMIN_SEED_MIDDLE_NAME = process.env.ADMIN_SEED_MIDDLE_NAME ?? "";
+const ADMIN_SEED_LAST_NAME = process.env.ADMIN_SEED_LAST_NAME;
+const ADMIN_SEED_NAME_EXTENSION = process.env.ADMIN_SEED_NAME_EXTENSION ?? "";
 
 const BCRYPT_SALT_ROUNDS = 12;
 
@@ -39,8 +43,10 @@ function requireEnv(name: string, value: string | undefined): string {
 async function main() {
   const supabaseUrl = requireEnv("SUPABASE_URL", SUPABASE_URL);
   const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY", SUPABASE_SERVICE_ROLE_KEY);
-  const email = requireEnv("ADMIN_SEED_EMAIL", ADMIN_SEED_EMAIL);
+  const email = requireEnv("ADMIN_SEED_EMAIL", ADMIN_SEED_EMAIL).trim().toLowerCase();
   const password = requireEnv("ADMIN_SEED_PASSWORD", ADMIN_SEED_PASSWORD);
+  const firstName = requireEnv("ADMIN_SEED_FIRST_NAME", ADMIN_SEED_FIRST_NAME);
+  const lastName = requireEnv("ADMIN_SEED_LAST_NAME", ADMIN_SEED_LAST_NAME);
 
   if (password.length < 12) {
     console.error("ADMIN_SEED_PASSWORD is too short — use at least 12 characters.");
@@ -58,13 +64,17 @@ async function main() {
       {
         email,
         password_hash: passwordHash,
-        full_name: ADMIN_SEED_NAME,
+        full_name: [firstName, ADMIN_SEED_MIDDLE_NAME, lastName, ADMIN_SEED_NAME_EXTENSION].filter(Boolean).join(" "),
+        first_name: firstName,
+        middle_name: ADMIN_SEED_MIDDLE_NAME,
+        last_name: lastName,
+        name_extension: ADMIN_SEED_NAME_EXTENSION,
         role: "admin",
         is_active: true,
       },
       { onConflict: "email" }
     )
-    .select("id, email, full_name, role, created_at")
+    .select("id, email, full_name, first_name, middle_name, last_name, name_extension, role, created_at")
     .single();
 
   if (error) {

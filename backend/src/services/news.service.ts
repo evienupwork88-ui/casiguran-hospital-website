@@ -9,6 +9,7 @@ export interface NewsRecord {
   excerpt: string | null;
   body: string;
   coverImageUrl: string | null;
+  externalUrl: string | null;
   status: "draft" | "published";
   publishedAt: string | null;
   authorId: string | null;
@@ -24,6 +25,7 @@ function mapNewsRow(row: any): NewsRecord {
     excerpt: row.excerpt ?? null,
     body: row.body,
     coverImageUrl: row.cover_image_url ?? null,
+    externalUrl: row.external_url ?? null,
     status: row.status,
     publishedAt: row.published_at ?? null,
     authorId: row.author_id ?? null,
@@ -35,7 +37,7 @@ function mapNewsRow(row: any): NewsRecord {
 export async function listPublishedNews(): Promise<NewsRecord[]> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
@@ -49,7 +51,7 @@ export async function listPublishedNews(): Promise<NewsRecord[]> {
 export async function getPublishedNewsBySlug(slug: string): Promise<NewsRecord | null> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -64,7 +66,7 @@ export async function getPublishedNewsBySlug(slug: string): Promise<NewsRecord |
 export async function listAllNews(): Promise<NewsRecord[]> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -79,8 +81,9 @@ export async function createNews(input: CreateNewsInput, authorId: string): Prom
     title: input.title,
     slug: input.slug,
     excerpt: input.excerpt?.trim() || null,
-    body: input.body,
+    body: input.body?.trim() || input.excerpt?.trim() || input.title,
     cover_image_url: input.coverImageUrl?.trim() || null,
+    external_url: input.externalUrl?.trim() || null,
     status: input.status ?? "draft",
     published_at: input.publishedAt && input.publishedAt.trim() !== "" ? input.publishedAt : null,
     author_id: authorId,
@@ -89,7 +92,7 @@ export async function createNews(input: CreateNewsInput, authorId: string): Prom
   const { data, error } = await supabase
     .from("news_posts")
     .insert(payload)
-    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
     .single();
 
   if (error) {
@@ -108,12 +111,16 @@ export async function updateNews(id: string, input: UpdateNewsInput): Promise<Ne
   if (input.title !== undefined) payload.title = input.title;
   if (input.slug !== undefined) payload.slug = input.slug;
   if (input.excerpt !== undefined) payload.excerpt = input.excerpt.trim() || null;
-  if (input.body !== undefined) payload.body = input.body;
+  if (input.body !== undefined) {
+    const body = input.body.trim() || input.excerpt?.trim() || input.title;
+    if (body) payload.body = body;
+  }
   if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.status !== undefined) payload.status = input.status;
   if (input.publishedAt !== undefined) payload.published_at = input.publishedAt || null;
   const { data, error } = await supabase.from("news_posts").update(payload).eq("id", id)
-    .select("id, title, slug, excerpt, body, cover_image_url, status, published_at, author_id, created_at, updated_at").single();
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at").single();
   if (error) throw new Error(`Failed to update news article: ${error.message}`);
   if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
   return mapNewsRow(data);

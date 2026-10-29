@@ -2,6 +2,7 @@ import crypto from "node:crypto";
 import { env } from "../config/env";
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
+import { sanitizeSvgUpload } from "../utils/sanitize-svg";
 import type { CreateDocumentInput, UpdateDocumentInput } from "../validation/documents.schema";
 
 const ALLOWED_EXTENSIONS = new Map([
@@ -18,13 +19,13 @@ const ALLOWED_EXTENSIONS = new Map([
   ["pptx", { mime: ["application/vnd.openxmlformats-officedocument.presentationml.presentation", "application/zip"], kind: "presentation" }],
 ]);
 
-const ORG_CHART_ALLOWED_EXTENSIONS = new Set(["pdf", "png", "jpg", "jpeg", "webp"]);
+const ORG_CHART_ALLOWED_EXTENSIONS = new Set(["pdf", "png", "jpg", "jpeg", "webp", "svg"]);
 
 export interface DocumentRecord {
   id: string;
   title: string;
   description: string | null;
-  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "patient_rights" | "other";
   filePath: string;
   fileSize: number | null;
   mimeType: string | null;
@@ -40,7 +41,7 @@ export interface DocumentRecord {
 export type UploadDocumentInput = {
   title: string;
   description?: string;
-  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
+  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "patient_rights" | "other";
   status?: "draft" | "published";
   publishedAt?: string | null;
   file: {
@@ -68,6 +69,8 @@ function fileTypeLabelFromCategory(category: string): string {
       return "Citizen's Charter";
     case "development_plan":
       return "Hospital Development Plan";
+    case "patient_rights":
+      return "Patient Rights";
     default:
       return "Document";
   }
@@ -132,7 +135,10 @@ function resolveAcceptedMimeType(file: UploadDocumentInput["file"], extension: s
   return file.mimetype || "application/octet-stream";
 }
 
-function validateDocumentFile(file: UploadDocumentInput["file"], category?: string) {
+function validateDocumentFile(
+  file: UploadDocumentInput["file"],
+  category?: string,
+): { extension: string; mimeType: string; buffer?: Buffer; size?: number } {
   const extension = fileExtensionFromName(file.originalname);
   if (!extension) {
     throw new AppError(400, "File extension is required.", "INVALID_FILE_EXTENSION");
@@ -143,6 +149,16 @@ function validateDocumentFile(file: UploadDocumentInput["file"], category?: stri
 
   if (!allowedForCategory.has(normalized)) {
     throw new AppError(400, "Unsupported file type. Please upload one of the approved hospital document formats.", "UNSUPPORTED_FILE_TYPE");
+  }
+
+  if (category === "org_chart" && normalized === "svg") {
+    const sanitized = sanitizeSvgUpload(file, env.maxOrgChartImageBytes, "organizational chart");
+    return {
+      extension: sanitized.extension,
+      mimeType: sanitized.mime,
+      buffer: sanitized.buffer,
+      size: sanitized.buffer.length,
+    };
   }
 
   const allowedMimeList = ALLOWED_EXTENSIONS.get(normalized)?.mime ?? [];
@@ -165,8 +181,9 @@ function validateDocumentFile(file: UploadDocumentInput["file"], category?: stri
     throw new AppError(400, "Executable files are not allowed.", "EXECUTABLE_UPLOAD_REJECTED");
   }
 
-  const allowedSize = (normalized === "jpg" || normalized === "jpeg" || normalized === "png" || normalized === "webp")
-    ? env.maxUploadImageBytes
+  const isImage = normalized === "jpg" || normalized === "jpeg" || normalized === "png" || normalized === "webp";
+  const allowedSize = isImage
+    ? category === "org_chart" ? env.maxOrgChartImageBytes : env.maxUploadImageBytes
     : env.maxUploadDocBytes;
 
   if (file.size > allowedSize) {
@@ -224,6 +241,15 @@ async function resolveStorageLink(filePath: string): Promise<{ viewUrl: string |
   return { viewUrl: null, downloadUrl: null };
 }
 
+export async function assertDocumentFileExists(filePath: string): Promise<void> {
+  const { data, error } = await supabase.storage
+    .from(env.storageBucketName)
+    .createSignedUrl(filePath, 60);
+  if (error || !data?.signedUrl) {
+    throw new AppError(400, "Upload the document through Documents before importing its metadata.", "DOCUMENT_FILE_NOT_FOUND");
+  }
+}
+
 export async function listPublishedDocuments(category?: string): Promise<DocumentRecord[]> {
   let query = supabase
     .from("documents")
@@ -273,10 +299,11 @@ export async function listAllDocuments(): Promise<DocumentRecord[]> {
 }
 
 export async function createDocument(input: CreateDocumentInput, uploadedById: string): Promise<DocumentRecord> {
+  const category = input.category ?? "other";
   const payload = {
-    title: input.title.trim(),
+    title: input.title?.trim() || fileTypeLabelFromCategory(category),
     description: input.description?.trim() || null,
-    category: input.category,
+    category,
     file_path: input.filePath.trim(),
     file_size: input.fileSize ?? null,
     mime_type: input.mimeType?.trim() || null,
@@ -368,18 +395,15 @@ export function validateDocumentUpload(file: UploadDocumentInput["file"], catego
 export async function uploadDocument(input: UploadDocumentInput, uploadedById: string): Promise<DocumentRecord> {
   const validation = validateDocumentFile(input.file, input.category ?? "report");
   const safeCategory = input.category ?? "report";
-  const safeTitle = (input.title ?? "").trim();
-
-  if (!safeTitle) {
-    throw new AppError(400, "Document title is required.", "TITLE_REQUIRED");
-  }
+  const safeTitle = (input.title ?? "").trim() || fileTypeLabelFromCategory(safeCategory);
 
   const safeDescription = input.description?.trim() || null;
   const extension = validation.extension;
   const fileNameBase = safeTitle.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase().replace(/-+/g, "-").slice(0, 60) || "document";
   const storagePath = `${safeCategory}/${crypto.randomUUID()}/${fileNameBase}.${extension}`;
 
-  const { error: uploadError } = await supabase.storage.from(env.storageBucketName).upload(storagePath, input.file.buffer, {
+  const fileBuffer = validation.buffer ?? input.file.buffer;
+  const { error: uploadError } = await supabase.storage.from(env.storageBucketName).upload(storagePath, fileBuffer, {
     contentType: validation.mimeType,
     cacheControl: "3600",
     upsert: false,
@@ -394,7 +418,7 @@ export async function uploadDocument(input: UploadDocumentInput, uploadedById: s
     description: safeDescription,
     category: safeCategory,
     file_path: storagePath,
-    file_size: input.file.size,
+    file_size: validation.size ?? input.file.size,
     mime_type: validation.mimeType,
     status: input.status ?? "draft",
     published_at: input.publishedAt && input.publishedAt.trim() !== "" ? input.publishedAt : null,

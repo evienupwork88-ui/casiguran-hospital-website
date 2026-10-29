@@ -1,3 +1,5 @@
+import { getCsrfToken } from "./auth";
+
 export type AdministrativeOfficeHourDay = {
   day: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
   isOpen: boolean;
@@ -62,16 +64,14 @@ export async function updateSettings(input: {
   emergencyServices24Hours?: boolean;
   mapEmbedUrl?: string;
 }): Promise<SiteSettings> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/settings`, {

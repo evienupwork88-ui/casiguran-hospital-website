@@ -4,13 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowRight, Building2, CalendarDays, FileText, HeartPulse, Mail, MapPin, Megaphone, Menu, Newspaper, Phone, X } from "lucide-react";
+import { Activity, ArrowRight, Building2, CalendarDays, FileText, HeartPulse, Mail, MapPin, Menu, Newspaper, Phone, X } from "lucide-react";
 import { getPublicAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
 import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
 import { getPublicEvents, type EventItem } from "@/lib/api/events";
 import { getPublicNews, type NewsItem } from "@/lib/api/news";
 import { getPublicPage, type PageItem } from "@/lib/api/pages";
-import { getPublicServices, type ServiceItem } from "@/lib/api/services";
 import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
 import { PublicDesktopNavigation, PublicMobileNavigation } from "@/components/public/public-navigation";
 import { formatOfficeHours } from "@/lib/format-office-hours";
@@ -19,17 +18,15 @@ const PGA_WEBSITE_URL = "https://auroraprovince.gov.ph/";
 
 const footerQuickLinks = [
   { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
-  { href: "/services", label: "Services" },
-  { href: "/news", label: "News" },
-  { href: "/announcements", label: "Announcements" },
-  { href: "/events", label: "Events" },
+  { href: "/vision-mission", label: "Vision & Mission" },
+  { href: "/patient-rights", label: "Patient Rights" },
+  { href: "/trainings", label: "Trainings" },
   { href: "/contact", label: "Contact" },
 ];
 
 // Same class for both header logos so they are always equal
 const headerLogoClass =
-  "relative h-12 w-12 shrink-0 sm:h-16 sm:w-16 lg:h-24 lg:w-24";
+  "relative h-10 w-10 shrink-0 sm:h-16 sm:w-16 lg:h-24 lg:w-24";
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
@@ -48,12 +45,33 @@ function formatEventDate(dateStr: string | null | undefined): { month: string; d
   };
 }
 
+function getDocumentPreviewKind(doc: DocumentItem): "pdf" | "image" | "other" {
+  const extension = (doc.fileExtension ?? "").toLowerCase().replace(".", "");
+  const mimeType = (doc.mimeType ?? "").toLowerCase();
+
+  if (extension === "pdf" || mimeType.includes("pdf")) return "pdf";
+  if (["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(extension) || mimeType.startsWith("image/")) return "image";
+  return "other";
+}
+
+function getDocumentPageHref(doc: DocumentItem): string {
+  switch (doc.category) {
+    case "patient_rights":
+      return "/patient-rights";
+    case "development_plan":
+      return "/transparency-seal";
+    case "org_chart":
+      return "/organizational-chart";
+    default:
+      return `/documents?category=${encodeURIComponent(doc.category)}`;
+  }
+}
+
 export default function Home() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
-  const [services, setServices] = useState<ServiceItem[]>([]);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -65,7 +83,6 @@ export default function Home() {
   useEffect(() => {
     async function loadHomeData() {
       const results = await Promise.allSettled([
-        getPublicServices(),
         getPublicSettings(),
         getPublicAnnouncements(),
         getPublicNews(),
@@ -74,9 +91,8 @@ export default function Home() {
         getPublicPage("about"),
       ]);
 
-      const [servicesResult, settingsResult, announcementsResult, newsResult, eventsResult, documentsResult, aboutPageResult] = results;
+      const [settingsResult, announcementsResult, newsResult, eventsResult, documentsResult, aboutPageResult] = results;
       setHomeError(results.some((result) => result.status === "rejected"));
-      if (servicesResult.status === "fulfilled") setServices(servicesResult.value);
       if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
       if (announcementsResult.status === "fulfilled") setAnnouncements(announcementsResult.value);
       if (newsResult.status === "fulfilled") setNews(newsResult.value);
@@ -129,9 +145,12 @@ export default function Home() {
     };
   }, [mobileOpen]);
 
-  const featuredAnnouncements = announcements.slice(0, 3);
-  const featuredServices = services.slice(0, 3);
-  const featuredNews = news.slice(0, 3);
+  const featuredUpdates = [
+    ...announcements.map((item) => ({ type: "announcement" as const, item, date: item.publishAt || item.createdAt })),
+    ...news.map((item) => ({ type: "news" as const, item, date: item.publishedAt || item.createdAt })),
+  ]
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
+    .slice(0, 3);
   const featuredEvents = events.slice(0, 3);
   const featuredDocuments = documents.filter((doc) => doc.status === "published").slice(0, 3);
 
@@ -139,7 +158,7 @@ export default function Home() {
     <main className="public-theme min-h-screen bg-[#f8f9fc] text-slate-900">
       <header className="sticky top-0 z-30 overflow-visible border-b-2 border-[var(--gold-400)] bg-white/95 shadow-[0_8px_24px_rgba(37,27,88,0.06)] backdrop-blur-xl">
 
-        <div className="relative flex min-h-[84px] w-full items-center justify-between gap-3 px-2 sm:px-3 lg:min-h-[116px] lg:gap-6">
+        <div className="relative flex min-h-[76px] w-full items-center justify-between gap-2 px-2 sm:min-h-[84px] sm:gap-3 sm:px-3 lg:min-h-[116px] lg:gap-6">
           {/* LEFT: PGA logo + CDH logo + title */}
           <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2 transition-opacity hover:opacity-80 sm:gap-3">
             {/* PGA image has built-in white padding, so scale it up to match the CDH logo's visual size.
@@ -176,7 +195,7 @@ export default function Home() {
               aria-expanded={mobileOpen}
               aria-controls="home-mobile-navigation"
               onClick={() => setMobileOpen((open) => !open)}
-              className="inline-flex h-10 w-10 items-center justify-center border border-slate-200 bg-white text-violet-700 transition hover:bg-violet-50 lg:hidden"
+              className="inline-flex h-11 w-11 items-center justify-center border border-slate-200 bg-white text-violet-700 transition hover:bg-violet-50 lg:hidden"
             >
               <span className="sr-only">Toggle menu</span>
               {mobileOpen ? <X size={18} /> : <Menu size={18} />}
@@ -207,12 +226,12 @@ export default function Home() {
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(24,15,55,0.95)_0%,rgba(38,24,82,0.82)_42%,rgba(38,24,82,0.28)_72%,rgba(38,24,82,0.08)_100%)]" />
 
-        <div className="relative mx-auto max-w-7xl px-5 py-16 sm:px-8 lg:py-24">
+        <div className="relative mx-auto max-w-7xl px-5 py-12 sm:px-8 sm:py-16 lg:py-24">
           <div className="relative z-10 max-w-2xl py-4">
             <span className="inline-flex items-center border-l-2 border-violet-300 bg-white/10 px-3 py-1 text-[0.68rem] font-bold uppercase tracking-[0.24em] text-violet-100 backdrop-blur-sm">
               Hospital information
             </span>
-            <h1 className="image-overlay-heading mt-6 max-w-xl text-4xl font-semibold leading-[1.02] tracking-[-0.03em] sm:text-6xl">
+            <h1 className="image-overlay-heading mt-6 max-w-xl break-words text-4xl font-semibold leading-[1.02] tracking-[-0.03em] sm:text-6xl">
               Casiguran District Hospital
             </h1>
             <p className="mt-6 max-w-xl text-base leading-7 text-violet-100 sm:text-lg sm:leading-8">
@@ -221,7 +240,7 @@ export default function Home() {
 
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
-                href="/about"
+                href="/vision-mission"
                 className="inline-flex items-center justify-center gap-2 bg-white px-5 py-3 text-sm font-semibold text-violet-900 shadow-lg transition-colors duration-200 hover:bg-violet-600 hover:text-white"
               >
                 About us <ArrowRight size={15} />
@@ -274,127 +293,71 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="announcements" className="border-y border-slate-200 bg-white py-14 sm:py-16">
+      <section id="news-updates" className="border-y border-slate-200 bg-white py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
           <div className="mb-8 flex items-end justify-between gap-4">
             <div>
-              <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Announcements</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Important updates</h2>
+              <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">CDH News and Updates</p>
+              <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Latest from the hospital</h2>
             </div>
-            <Link href="/announcements" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
+            <Link href="/news" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
               View all →
             </Link>
           </div>
 
           <div className="grid gap-5 md:grid-cols-3">
-            {featuredAnnouncements.length > 0 ? (
-              featuredAnnouncements.map((item) => (
-                <article key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
-                      {formatDate(item.publishAt || item.createdAt)}
-                    </p>
-                    {item.priority === "urgent" ? (
-                      <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-red-700">
-                        Urgent
-                      </span>
+            {featuredUpdates.length > 0 ? (
+              featuredUpdates.map((entry) => {
+                const isNews = entry.type === "news";
+                const content = (
+                  <>
+                    {isNews && entry.item.coverImageUrl ? (
+                      <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url('${entry.item.coverImageUrl}')` }} />
                     ) : null}
-                  </div>
-                  <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
-                  <p className="mt-3 text-base leading-7 text-slate-600">{item.body}</p>
-                </article>
-              ))
+                    <div className="p-6">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
+                          {isNews ? "News" : "Update"} · {formatDate(entry.date)}
+                        </p>
+                        {!isNews && entry.item.priority === "urgent" ? (
+                          <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-red-700">Urgent</span>
+                        ) : null}
+                      </div>
+                      <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{entry.item.title}</h3>
+                      <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">
+                        {isNews
+                          ? entry.item.excerpt || (entry.item.body.length > 140 ? `${entry.item.body.slice(0, 140)}...` : entry.item.body)
+                          : entry.item.body}
+                      </p>
+                      {isNews ? (
+                        <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">
+                          {entry.item.externalUrl ? "View Facebook post ↗" : "Read more →"}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                );
+                const cardClass = "overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]";
+
+                return isNews ? (
+                  <Link
+                    key={`news-${entry.item.id}`}
+                    href={entry.item.externalUrl || `/news/${encodeURIComponent(entry.item.slug)}`}
+                    target={entry.item.externalUrl ? "_blank" : undefined}
+                    rel={entry.item.externalUrl ? "noopener noreferrer" : undefined}
+                    className={cardClass}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <article key={`announcement-${entry.item.id}`} className={cardClass}>{content}</article>
+                );
+              })
             ) : (
               <div className="border border-dashed border-violet-200 bg-violet-50/50 p-10 text-center text-slate-600 md:col-span-3">
-                <Megaphone className="mx-auto text-violet-500" size={26} strokeWidth={1.5} />
-                <p className="font-semibold text-slate-900">No public announcements at this time</p>
-                <p className="mt-2 text-sm">Official hospital bulletins and advisories will be published here.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section id="services" className="mx-auto max-w-7xl px-5 pb-16 pt-16 sm:px-8">
-        <div className="mb-6 flex items-end justify-between gap-4">
-          <div>
-            <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Services</p>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Core healthcare services</h2>
-          </div>
-          <Link href="/services" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
-            Explore all →
-          </Link>
-        </div>
-
-        <div className="grid gap-5 md:grid-cols-3">
-          {featuredServices.length > 0 ? (
-            featuredServices.map((service) => (
-              <div key={service.id} className="rounded-[24px] border border-violet-200 bg-white p-5 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-full bg-violet-100 text-lg font-medium text-violet-700">
-                  {service.iconOrImageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={service.iconOrImageUrl} alt="" className="h-full w-full rounded-full object-cover" />
-                  ) : (
-                    "+"
-                  )}
-                </div>
-                <p className="text-lg font-semibold text-slate-900">{service.name}</p>
-                {service.department ? <p className="mt-1 text-sm font-medium text-violet-700">{service.department}</p> : null}
-                <p className="mt-3 text-sm leading-7 text-slate-600">{service.description}</p>
-              </div>
-            ))
-          ) : (
-            <div className="border border-dashed border-violet-200 bg-white p-10 text-center text-sm text-slate-600 md:col-span-3">
-              <HeartPulse className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
-              <p className="font-semibold text-slate-900">No services have been published yet</p>
-              <p className="mt-2">The official service directory will appear here once published.</p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      <section id="news" className="border-t border-slate-200 bg-white py-16">
-        <div className="mx-auto max-w-7xl px-5 sm:px-8">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">News</p>
-              <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Latest updates</h2>
-            </div>
-            <Link href="/news" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
-              See more →
-            </Link>
-          </div>
-
-          <div className="grid gap-5 md:grid-cols-3">
-            {featuredNews.length > 0 ? (
-              featuredNews.map((item) => (
-                <article key={item.id} className="overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-                  <div
-                    className="h-32 bg-[linear-gradient(135deg,#f3e8ff,#e2e8f0)] bg-cover bg-center"
-                    style={item.coverImageUrl ? { backgroundImage: `url('${item.coverImageUrl}')` } : undefined}
-                  />
-                  <div className="p-6">
-                    <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
-                      {formatDate(item.publishedAt || item.createdAt)}
-                    </p>
-                    <h3 className="mt-3 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
-                    <p className="mt-3 text-base leading-7 text-slate-600">
-                      {item.excerpt || (item.body.length > 140 ? `${item.body.slice(0, 140)}...` : item.body)}
-                    </p>
-                    <Link
-                      href={`/news/${encodeURIComponent(item.slug)}`}
-                      className="mt-4 inline-flex text-sm font-semibold text-violet-700 hover:text-violet-800"
-                    >
-                      Read more →
-                    </Link>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="border border-dashed border-violet-200 bg-violet-50/50 p-10 text-center text-slate-600 md:col-span-3">
-                <Newspaper className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
-                <p className="font-semibold text-slate-900">No news articles published yet</p>
-                <p className="mt-2 text-sm">Official updates and health advisories will appear here.</p>
+                <Newspaper className="mx-auto text-violet-500" size={26} strokeWidth={1.5} />
+                <p className="font-semibold text-slate-900">No news or updates at this time</p>
+                <p className="mt-2 text-sm">Official hospital news and advisories will appear here.</p>
               </div>
             )}
           </div>
@@ -453,20 +416,45 @@ export default function Home() {
           <div className="border border-violet-200 bg-[#fbfaff] p-6">
             <div className="grid gap-4 md:grid-cols-3">
               {featuredDocuments.length > 0 ? (
-                featuredDocuments.map((item) => (
-                  <a
-                    key={item.id}
-                    href={item.viewUrl ?? item.downloadUrl ?? "/documents"}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center justify-between rounded-[20px] border border-violet-200 bg-violet-50/50 p-5 text-sm font-medium text-slate-700 transition hover:border-violet-300 hover:bg-violet-100/60"
-                  >
-                    <span className="truncate pr-2">{item.title}</span>
-                    <span className="shrink-0 text-xs font-semibold text-violet-700">
-                      {(item.fileExtension ?? item.mimeType ?? "DOC").toUpperCase().slice(0, 4)} →
-                    </span>
-                  </a>
-                ))
+                featuredDocuments.map((item) => {
+                  const previewUrl = item.viewUrl ?? item.downloadUrl;
+                  const previewKind = getDocumentPreviewKind(item);
+
+                  return (
+                    <a
+                      key={item.id}
+                      href={getDocumentPageHref(item)}
+                      className="group overflow-hidden rounded-[20px] border border-violet-200 bg-white text-sm font-medium text-slate-700 transition hover:border-violet-300 hover:shadow-[0_8px_24px_rgba(76,29,149,0.10)]"
+                    >
+                      <div className="relative flex aspect-[16/9] items-center justify-center overflow-hidden bg-white">
+                        {previewUrl && previewKind === "pdf" ? (
+                          <iframe
+                            src={previewUrl}
+                            title={`Preview of ${item.title}`}
+                            aria-hidden="true"
+                            tabIndex={-1}
+                            loading="lazy"
+                            className="pointer-events-none absolute -left-4 -top-12 h-[calc(100%+3rem)] w-[calc(100%+2rem)] border-0 bg-white"
+                          />
+                        ) : previewUrl && previewKind === "image" ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={previewUrl} alt="" loading="lazy" className="h-full w-full object-contain" />
+                        ) : (
+                          <FileText aria-hidden="true" className="text-violet-400" size={36} strokeWidth={1.4} />
+                        )}
+                        <span className="absolute bottom-2 right-2 rounded bg-white/90 px-2 py-1 text-[0.65rem] font-bold uppercase tracking-wide text-violet-700 shadow-sm">
+                          {(item.fileExtension ?? item.mimeType ?? "DOC").replace(".", "").toUpperCase().slice(0, 4)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 p-4">
+                        <span className="truncate">{item.title}</span>
+                        <span aria-hidden="true" className="shrink-0 text-xs font-semibold text-violet-700 group-hover:text-violet-900">
+                          View →
+                        </span>
+                      </div>
+                    </a>
+                  );
+                })
               ) : (
                 <div className="border border-dashed border-violet-200 bg-violet-50/50 p-8 text-center text-sm font-medium text-slate-600 md:col-span-3">
                   <FileText className="mx-auto mb-3 text-violet-500" size={28} strokeWidth={1.5} />

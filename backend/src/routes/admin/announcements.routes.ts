@@ -6,6 +6,7 @@ import {
   updateAdminAnnouncement,
 } from "../../controllers/announcements.controller";
 import { requireAuth } from "../../middleware/requireAuth";
+import { requireChangeApproval } from "../../middleware/admin-change-approval";
 import { requireCsrf } from "../../middleware/requireCsrf";
 import { requireRole } from "../../middleware/requireRole";
 import { validateBody } from "../../middleware/validate";
@@ -16,8 +17,8 @@ const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
 router.get("/", asyncHandler(listAdminAnnouncements));
-router.post("/", requireCsrf, validateBody(createAnnouncementSchema), asyncHandler(createAdminAnnouncement));
-router.put("/:id", requireCsrf, validateBody(updateAnnouncementSchema), asyncHandler(updateAdminAnnouncement));
-router.delete("/:id", requireRole("admin"), requireCsrf, asyncHandler(deleteAdminAnnouncement));
+router.post("/", requireCsrf, validateBody(createAnnouncementSchema), requireChangeApproval("Announcements", "Create"), asyncHandler(createAdminAnnouncement));
+router.put("/:id", requireCsrf, validateBody(updateAnnouncementSchema), requireChangeApproval("Announcements", "Update"), asyncHandler(updateAdminAnnouncement));
+router.delete("/:id", requireRole("admin", "editor"), requireCsrf, requireChangeApproval("Announcements", "Delete"), asyncHandler(deleteAdminAnnouncement));
 
 export default router;

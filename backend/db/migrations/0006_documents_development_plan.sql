@@ -4,4 +4,4 @@ alter table documents
 
 alter table documents
   add constraint documents_category_check
-  check (category in ('report', 'org_chart', 'policy', 'citizens_charter', 'development_plan', 'other'));
+  check (category in ('report', 'org_chart', 'policy', 'citizens_charter', 'development_plan', 'patient_rights', 'other'));

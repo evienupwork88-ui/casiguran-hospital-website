@@ -28,4 +28,4 @@ What was decided?
 What does this affect going forward?
 ```
 
-No ADRs exist yet — this project is still in the foundation stage.
+See the numbered decision records in this folder for accepted decisions.

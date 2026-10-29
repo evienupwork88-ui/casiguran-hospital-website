@@ -31,6 +31,8 @@ export const env = {
   nodeEnv,
   isProduction,
   port: envNumber("PORT", 4000),
+  trustProxyHops: envNumber("TRUST_PROXY_HOPS", 0),
+  timezone: envString("TIMEZONE", "Asia/Manila"),
 
   corsAllowedOrigins: envString("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
     .split(",")
@@ -40,10 +42,13 @@ export const env = {
   supabaseUrl: requireEnv("SUPABASE_URL"),
   supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
   storageBucketName: envString("STORAGE_BUCKET_NAME", "cdh-documents"),
+  approvalStagingBucketName: envString("APPROVAL_STAGING_BUCKET_NAME", "cdh-approval-staging"),
   maxUploadImageBytes: envNumber("MAX_UPLOAD_IMAGE_MB", 5) * 1024 * 1024,
   maxUploadDocBytes: envNumber("MAX_UPLOAD_DOC_MB", 15) * 1024 * 1024,
+  maxOrgChartImageBytes: envNumber("ORG_CHART_IMAGE_MAX_UPLOAD_MB", 25) * 1024 * 1024,
 
   sessionCookieName: envString("SESSION_COOKIE_NAME", "cdh_session"),
+  sessionCookieDomain: envString("SESSION_COOKIE_DOMAIN", ""),
   sessionSecret: requireEnv("SESSION_SECRET"),
   sessionTtlHours: envNumber("SESSION_TTL_HOURS", 8),
 
@@ -51,4 +56,7 @@ export const env = {
 
   rateLimitLoginMax: envNumber("RATE_LIMIT_LOGIN_MAX", 5),
   rateLimitLoginWindowMinutes: envNumber("RATE_LIMIT_LOGIN_WINDOW_MINUTES", 15),
+  gmailSmtpUser: envString("GMAIL_SMTP_USER", ""),
+  gmailSmtpAppPassword: envString("GMAIL_SMTP_APP_PASSWORD", ""),
+  passwordResetEmailFrom: envString("PASSWORD_RESET_EMAIL_FROM", ""),
 };

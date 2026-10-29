@@ -11,6 +11,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   org_chart: "Org Chart",
   citizens_charter: "Citizen's Charter",
   development_plan: "Hospital Development Plan",
+  patient_rights: "Patient Rights",
 };
 
 const IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "webp", "svg"];
@@ -76,7 +77,12 @@ function DocumentsContent() {
       try {
         const items = await getPublicDocuments(selectedCategory);
         if (cancelled) return;
-        const published = items.filter((item) => item.status === "published" && item.category !== "org_chart" && item.category !== "development_plan");
+        const published = items.filter((item) =>
+          item.status === "published" &&
+          item.category !== "org_chart" &&
+          item.category !== "development_plan" &&
+          item.category !== "patient_rights"
+        );
 
         // Citizen's Charter: iisang file lang ang ipinapakita (yung pinakabago)
         if (selectedCategory === "citizens_charter") {

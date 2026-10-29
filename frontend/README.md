@@ -16,3 +16,8 @@ npm run dev
 ```
 
 Runs at http://localhost:3000.
+
+The admin sign-in URL is configured with `ADMIN_PATH` in `.env.local`.
+Keep the same value in the production frontend environment. The default is
+`/admin`; use your configured path followed by `/login` to sign in. Admin
+pages remain protected by authentication regardless of the path.

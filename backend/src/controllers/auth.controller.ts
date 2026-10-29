@@ -1,9 +1,10 @@
 import crypto from "node:crypto";
+import { completePasswordReset, requestPasswordReset } from "../services/password-reset.service";
 import type { Request, Response } from "express";
 import { verifyCredentials } from "../services/auth.service";
 import { createSession, revokeSession } from "../services/session.service";
 import { env } from "../config/env";
-import type { LoginInput } from "../validation/auth.schema";
+import type { CompletePasswordResetInput, LoginInput, RequestPasswordResetInput } from "../validation/auth.schema";
 
 function cookieOptions(maxAgeMs: number, httpOnly: boolean) {
   return {
@@ -12,6 +13,7 @@ function cookieOptions(maxAgeMs: number, httpOnly: boolean) {
     sameSite: "lax" as const,
     path: "/",
     maxAge: maxAgeMs,
+    ...(env.sessionCookieDomain ? { domain: env.sessionCookieDomain } : {}),
   };
 }
 
@@ -19,6 +21,7 @@ export async function login(req: Request, res: Response) {
   const { email, password } = req.body as LoginInput;
 
   const admin = await verifyCredentials(email, password);
+  req.user = admin;
 
   const { rawToken, expiresAt } = await createSession(admin.id, {
     userAgent: req.get("user-agent"),
@@ -36,9 +39,27 @@ export async function login(req: Request, res: Response) {
       id: admin.id,
       email: admin.email,
       fullName: admin.fullName,
+      firstName: admin.firstName,
+      middleName: admin.middleName,
+      lastName: admin.lastName,
+      nameExtension: admin.nameExtension,
       role: admin.role,
     },
+    csrfToken,
   });
+}
+
+export async function forgotPassword(req: Request, res: Response) {
+  const { email } = req.body as RequestPasswordResetInput;
+  await requestPasswordReset(email);
+  res.status(200).json({
+    message: "If an active account uses that email, a verification code has been sent.",
+  });
+}
+
+export async function resetPassword(req: Request, res: Response) {
+  await completePasswordReset(req.body as CompletePasswordResetInput);
+  res.status(200).json({ message: "Password reset successfully. Sign in with your new password." });
 }
 
 export async function logout(req: Request, res: Response) {
@@ -55,5 +76,8 @@ export async function logout(req: Request, res: Response) {
 
 export async function me(req: Request, res: Response) {
   // requireAuth has already run and attached req.user.
-  res.status(200).json({ user: req.user });
+  res.status(200).json({
+    user: req.user,
+    csrfToken: req.cookies?.[env.csrfCookieName] ?? null,
+  });
 }

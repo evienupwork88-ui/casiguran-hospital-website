@@ -1,3 +1,5 @@
+import { getCsrfToken } from "./auth";
+
 export type NewsItem = {
   id: string;
   title: string;
@@ -5,6 +7,7 @@ export type NewsItem = {
   excerpt: string | null;
   body: string;
   coverImageUrl: string | null;
+  externalUrl: string | null;
   status: "draft" | "published";
   publishedAt: string | null;
   authorId: string | null;
@@ -65,19 +68,18 @@ export async function createNews(input: {
   excerpt?: string;
   body: string;
   coverImageUrl?: string;
+  externalUrl?: string;
   status?: "draft" | "published";
   publishedAt?: string;
 }): Promise<NewsItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/news`, {
@@ -92,9 +94,9 @@ export async function createNews(input: {
 }
 
 function csrfHeaders() {
-  const csrfToken = document.cookie.split("; ").find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (csrfToken) headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
   return headers;
 }
 

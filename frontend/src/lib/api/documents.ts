@@ -1,8 +1,10 @@
+import { getCsrfToken } from "./auth";
+
 export type DocumentItem = {
   id: string;
   title: string;
   description: string | null;
-  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "patient_rights" | "other";
   filePath: string;
   fileSize: number | null;
   mimeType: string | null;
@@ -49,45 +51,79 @@ export async function getAdminDocuments(): Promise<DocumentItem[]> {
   return data.items;
 }
 
-export async function uploadDocument(formData: FormData): Promise<DocumentItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+export async function uploadDocument(
+  formData: FormData,
+  onProgress?: (percentage: number | null) => void,
+): Promise<DocumentItem> {
+  const csrfToken = getCsrfToken();
 
-  const headers: Record<string, string> = {};
+  const file = formData.get("file");
+  const isOrgChartImage =
+    formData.get("category") === "org_chart" &&
+    file instanceof File &&
+    /\.(jpe?g|png|webp|svg)$/i.test(file.name);
+  const uploadPath = isOrgChartImage ? "/api/admin/documents/org-chart-image" : "/api/admin/documents";
 
-  if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
-  }
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", `${API_BASE_URL}${uploadPath}`);
+    request.withCredentials = true;
 
-  const response = await fetch(`${API_BASE_URL}/api/admin/documents`, {
-    method: "POST",
-    credentials: "include",
-    headers,
-    body: formData,
+    if (csrfToken) {
+      request.setRequestHeader("x-csrf-token", csrfToken);
+    }
+
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable) {
+        onProgress?.(Math.min(100, Math.floor((event.loaded / event.total) * 100)));
+      } else {
+        onProgress?.(null);
+      }
+    };
+    request.onerror = () => reject(new Error("Network error while uploading the file."));
+    request.onabort = () => reject(new Error("File upload was canceled."));
+    request.onload = () => {
+      let responseData: { item?: DocumentItem; error?: { message?: string } } | null;
+      try {
+        responseData = JSON.parse(request.responseText || "null");
+      } catch {
+        reject(new Error("The server returned an invalid upload response."));
+        return;
+      }
+
+      if (request.status < 200 || request.status >= 300) {
+        reject(new Error(responseData?.error?.message ?? "Request failed"));
+        return;
+      }
+
+      if (!responseData?.item) {
+        reject(new Error("The server returned an invalid upload response."));
+        return;
+      }
+
+      resolve(responseData.item);
+    };
+
+    onProgress?.(0);
+    request.send(formData);
   });
-
-  const data = await parseJson<{ item: DocumentItem }>(response);
-  return data.item;
 }
 
 export async function updateDocument(id: string, input: Partial<{
   title: string;
   description: string;
-  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
+  category: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "patient_rights" | "other";
   status: "draft" | "published";
   publishedAt: string;
 }>): Promise<DocumentItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/documents/${id}`, {
@@ -102,14 +138,12 @@ export async function updateDocument(id: string, input: Partial<{
 }
 
 export async function deleteDocument(id: string): Promise<void> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {};
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/documents/${id}`, {
@@ -124,23 +158,21 @@ export async function deleteDocument(id: string): Promise<void> {
 export async function createDocument(input: {
   title: string;
   description?: string;
-  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "other";
+  category?: "report" | "org_chart" | "policy" | "citizens_charter" | "development_plan" | "patient_rights" | "other";
   filePath: string;
   fileSize?: number;
   mimeType?: string;
   status?: "draft" | "published";
   publishedAt?: string;
 }): Promise<DocumentItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/documents/legacy`, {

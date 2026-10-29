@@ -8,8 +8,10 @@ import { useNotifications } from "@/components/providers/notification-provider";
 
 const emptyForm = {
   email: "",
-  fullName: "",
-  role: "editor" as "admin" | "editor",
+  firstName: "",
+  middleName: "",
+  lastName: "",
+  nameExtension: "",
   password: "",
   isActive: true,
 };
@@ -20,6 +22,7 @@ export default function AdminUsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const { showSuccess, showError } = useNotifications();
 
   async function loadUsers() {
@@ -43,9 +46,22 @@ export default function AdminUsersPage() {
     setIsSubmitting(true);
 
     try {
-      await createUser(form);
+      if (editingUserId) {
+        await updateUser(editingUserId, {
+          email: form.email,
+          firstName: form.firstName,
+          middleName: form.middleName,
+          lastName: form.lastName,
+          nameExtension: form.nameExtension,
+          ...(form.password ? { password: form.password } : {}),
+        });
+        showSuccess("Staff account updated.", "Saved");
+      } else {
+        await createUser(form);
+        showSuccess("Editor account created.", "Saved");
+      }
       setForm(emptyForm);
-      showSuccess("Staff user created.", "Saved");
+      setEditingUserId(null);
       await loadUsers();
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to create user.";
@@ -54,6 +70,20 @@ export default function AdminUsersPage() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function beginEdit(user: StaffUser) {
+    setEditingUserId(user.id);
+    setForm({
+      email: user.email,
+      firstName: user.firstName,
+      middleName: user.middleName,
+      lastName: user.lastName,
+      nameExtension: user.nameExtension,
+      password: "",
+      isActive: user.isActive,
+    });
+    setError("");
   }
 
   async function handleToggleStatus(user: StaffUser) {
@@ -84,22 +114,59 @@ export default function AdminUsersPage() {
 
   return (
     <AdminShell title="Staff Users">
-      <form onSubmit={handleSubmit} className="mb-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <form onSubmit={handleSubmit} className="mb-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="mb-5 text-lg font-semibold text-slate-900">{editingUserId ? "Edit staff account" : "Create editor account"}</h2>
         <div className="grid gap-5 md:grid-cols-2">
           <label className="block text-sm font-medium text-slate-700">
-            Full name
+            First name
             <input
-              autoComplete="name"
-              value={form.fullName}
-              onChange={(event) => setForm((current) => ({ ...current, fullName: event.target.value }))}
+              maxLength={100}
+              autoComplete="given-name"
+              value={form.firstName}
+              onChange={(event) => setForm((current) => ({ ...current, firstName: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
               required
             />
           </label>
 
           <label className="block text-sm font-medium text-slate-700">
+            Middle name <span className="font-normal text-slate-500">(optional)</span>
+            <input
+              maxLength={100}
+              autoComplete="additional-name"
+              value={form.middleName}
+              onChange={(event) => setForm((current) => ({ ...current, middleName: event.target.value }))}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-slate-700">
+            Last name
+            <input
+              maxLength={100}
+              autoComplete="family-name"
+              value={form.lastName}
+              onChange={(event) => setForm((current) => ({ ...current, lastName: event.target.value }))}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+              required
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-slate-700">
+            Name extension <span className="font-normal text-slate-500">(optional, e.g. Jr., III)</span>
+            <input
+              maxLength={30}
+              autoComplete="honorific-suffix"
+              value={form.nameExtension}
+              onChange={(event) => setForm((current) => ({ ...current, nameExtension: event.target.value }))}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+            />
+          </label>
+
+          <label className="block text-sm font-medium text-slate-700">
             Email
             <input
+              maxLength={254}
               type="email"
               autoComplete="email"
               value={form.email}
@@ -110,27 +177,18 @@ export default function AdminUsersPage() {
           </label>
 
           <label className="block text-sm font-medium text-slate-700">
-            Role
-            <select
-              value={form.role}
-              onChange={(event) => setForm((current) => ({ ...current, role: event.target.value as "admin" | "editor" }))}
-              className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-            >
-              <option value="editor">Editor</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-
-          <label className="block text-sm font-medium text-slate-700">
             Password
             <input
               type="password"
               autoComplete="new-password"
+              minLength={12}
+              maxLength={128}
               value={form.password}
               onChange={(event) => setForm((current) => ({ ...current, password: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-              required
+              required={!editingUserId}
             />
+            <span className="mt-1 block text-xs font-normal text-slate-500">{editingUserId ? "Leave blank to keep the current password. New passwords must be at least 12 characters." : "Use at least 12 characters."}</span>
           </label>
         </div>
 
@@ -141,15 +199,21 @@ export default function AdminUsersPage() {
         ) : null}
 
         <div className="mt-6 flex justify-end">
+          {editingUserId ? (
+            <button type="button" onClick={() => { setEditingUserId(null); setForm(emptyForm); setError(""); }} className="mr-3 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              Cancel
+            </button>
+          ) : null}
           <button
             type="submit"
             disabled={isSubmitting}
             className="rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
-            {isSubmitting ? "Saving..." : "Create user"}
+            {isSubmitting ? "Saving..." : editingUserId ? "Save changes" : "Create editor"}
           </button>
         </div>
       </form>
+      <p className="mb-6 text-sm text-slate-600">Only Editor accounts can be created here. The single Admin account is managed separately. Existing accounts can be edited here, but the Admin cannot be disabled or demoted.</p>
 
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-[720px] divide-y divide-slate-200">
@@ -185,20 +249,25 @@ export default function AdminUsersPage() {
                   </td>
                   <td className="px-5 py-4 text-sm">
                     <div className="flex gap-2">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(user)}
-                        className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100"
-                      >
-                        {user.isActive ? "Disable" : "Enable"}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeactivate(user)}
-                        className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-700 hover:bg-red-100"
-                      >
-                        Deactivate
-                      </button>
+                      <button type="button" onClick={() => beginEdit(user)} className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100">Edit</button>
+                      {user.role === "editor" ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(user)}
+                            className="rounded-lg border border-violet-200 bg-violet-50 px-2.5 py-1.5 font-medium text-violet-700 hover:bg-violet-100"
+                          >
+                            {user.isActive ? "Disable" : "Enable"}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeactivate(user)}
+                            className="rounded-lg border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-700 hover:bg-red-100"
+                          >
+                            Deactivate
+                          </button>
+                        </>
+                      ) : null}
                     </div>
                   </td>
                 </tr>

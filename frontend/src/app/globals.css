@@ -72,6 +72,27 @@
   --font-mono: var(--font-geist-mono);
 }
 
+.opd-slide-image {
+  animation: opd-slide-fade 700ms ease-in-out;
+}
+
+@keyframes opd-slide-fade {
+  from {
+    opacity: 0.45;
+    transform: scale(1.015);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .opd-slide-image {
+    animation: none;
+  }
+}
+
 /*
   IMPORTANT: these base styles must live inside @layer base.
   Unlayered CSS always beats Tailwind's utilities (which are layered),
@@ -118,6 +139,7 @@
   ::selection {
     background: rgba(124, 58, 237, 0.18);
   }
+
 }
 
 @layer components {
@@ -126,5 +148,13 @@
     font-family: var(--font-script), cursive;
     letter-spacing: 0.01em;
     text-shadow: 0 2px 14px rgba(15, 8, 38, 0.72);
+  }
+}
+
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px;
   }
 }

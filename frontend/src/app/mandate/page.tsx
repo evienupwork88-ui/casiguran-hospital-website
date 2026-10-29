@@ -48,6 +48,14 @@ export default function MandatePage() {
               The official hospital mandate will appear here once provided by Casiguran District Hospital.
             </p>
           )}
+          <a
+            href="https://lawphil.net/statutes/repacts/ra1971/ra_6332_1971.html"
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 inline-flex rounded-full bg-violet-700 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-violet-800"
+          >
+            Read Republic Act No. 6332 on Lawphil
+          </a>
         </article>
       </section>
     </PublicShell>

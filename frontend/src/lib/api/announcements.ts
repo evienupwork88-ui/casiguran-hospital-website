@@ -1,3 +1,5 @@
+import { getCsrfToken } from "./auth";
+
 export type AnnouncementItem = {
   id: string;
   title: string;
@@ -52,16 +54,14 @@ export async function createAnnouncement(input: {
   publishAt?: string;
   expiresAt?: string;
 }): Promise<AnnouncementItem> {
-  const csrfToken = document.cookie
-    .split("; ")
-    .find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
 
   if (csrfToken) {
-    headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+    headers["x-csrf-token"] = csrfToken;
   }
 
   const response = await fetch(`${API_BASE_URL}/api/admin/announcements`, {
@@ -76,9 +76,9 @@ export async function createAnnouncement(input: {
 }
 
 function csrfHeaders() {
-  const csrfToken = document.cookie.split("; ").find((cookie) => cookie.startsWith("cdh_csrf="));
+  const csrfToken = getCsrfToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (csrfToken) headers["x-csrf-token"] = decodeURIComponent(csrfToken.split("=")[1] ?? "");
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
   return headers;
 }
 

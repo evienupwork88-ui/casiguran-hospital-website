@@ -9,11 +9,9 @@ import { useNotifications } from "@/components/providers/notification-provider";
 const pageConfig = [
   { slug: "mandate", label: "Mandate" },
   { slug: "about", label: "About the Hospital" },
-  { slug: "hospital-history", label: "Hospital History" },
   { slug: "vision", label: "Vision" },
   { slug: "mission", label: "Mission" },
   { slug: "service-pledge", label: "Service Pledge" },
-  { slug: "key-officials", label: "Key Officials" },
 ];
 
 export default function AdminPagesPage() {
@@ -126,6 +124,7 @@ export default function AdminPagesPage() {
                     Page title
                     <input
                       required
+                      maxLength={200}
                       value={form.title}
                       onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -136,6 +135,7 @@ export default function AdminPagesPage() {
                     Page content
                     <textarea
                       required
+                      maxLength={20000}
                       value={form.body}
                       onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))}
                       className="mt-2 min-h-[220px] w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"

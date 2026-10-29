@@ -134,6 +134,7 @@ export default function AdminSettingsPage() {
           <label className="block text-sm font-medium text-slate-700 md:col-span-2">
             Address
             <input
+              maxLength={500}
               value={form.address}
               onChange={(event) => setForm((current) => ({ ...current, address: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -143,6 +144,7 @@ export default function AdminSettingsPage() {
           <label className="block text-sm font-medium text-slate-700">
             Phone
             <input
+              maxLength={50}
               value={form.phone}
               onChange={(event) => setForm((current) => ({ ...current, phone: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -153,6 +155,7 @@ export default function AdminSettingsPage() {
             Email
             <input
               type="email"
+              maxLength={254}
               value={form.email}
               onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -162,6 +165,7 @@ export default function AdminSettingsPage() {
           <label className="block text-sm font-medium text-slate-700 md:col-span-2">
             Facebook URL
             <input
+              maxLength={2048}
               value={form.facebookUrl}
               onChange={(event) => setForm((current) => ({ ...current, facebookUrl: event.target.value }))}
               className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -262,6 +266,7 @@ export default function AdminSettingsPage() {
         <label className="block text-sm font-medium text-slate-700 md:col-span-2">
           Legacy office hours notes
           <input
+            maxLength={1000}
             value={form.officeHours}
             onChange={(event) => setForm((current) => ({ ...current, officeHours: event.target.value }))}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
@@ -272,6 +277,7 @@ export default function AdminSettingsPage() {
         <label className="block text-sm font-medium text-slate-700 md:col-span-2">
           Map embed URL
           <input
+            maxLength={2048}
             value={form.mapEmbedUrl}
             onChange={(event) => setForm((current) => ({ ...current, mapEmbedUrl: event.target.value }))}
             className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"

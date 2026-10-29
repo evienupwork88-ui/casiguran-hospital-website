@@ -8,7 +8,7 @@ import {
   updateDocument,
   uploadDocument,
 } from "../services/documents.service";
-import type { CreateDocumentInput, UpdateDocumentInput } from "../validation/documents.schema";
+import { createDocumentSchema, type CreateDocumentInput, type UpdateDocumentInput } from "../validation/documents.schema";
 
 export async function listPublicDocuments(req: Request, res: Response) {
   const category = typeof req.query.category === "string" ? req.query.category : undefined;
@@ -42,17 +42,20 @@ export async function uploadAdminDocument(req: Request, res: Response) {
     throw new AppError(400, "A supported file is required.", "FILE_REQUIRED");
   }
 
-  const category = (req.body.category as CreateDocumentInput["category"]) ?? "report";
-  const status = (req.body.status as CreateDocumentInput["status"]) ?? "draft";
-  const publishedAt = typeof req.body.publishedAt === "string" ? req.body.publishedAt : null;
+  const input = createDocumentSchema.parse({
+    ...req.body,
+    filePath: "uploaded-file",
+    fileSize: file.size,
+    mimeType: file.mimetype,
+  });
 
   const document = await uploadDocument(
     {
-      title: String(req.body.title ?? ""),
-      description: typeof req.body.description === "string" ? req.body.description : undefined,
-      category,
-      status,
-      publishedAt,
+      title: input.title ?? "",
+      description: input.description,
+      category: input.category,
+      status: input.status,
+      publishedAt: input.publishedAt,
       file: {
         buffer: file.buffer,
         originalname: file.originalname,
@@ -64,6 +67,14 @@ export async function uploadAdminDocument(req: Request, res: Response) {
   );
 
   res.status(201).json({ item: document });
+}
+
+export async function uploadAdminOrgChartImage(req: Request, res: Response) {
+  if (!req.file?.mimetype.startsWith("image/")) {
+    throw new AppError(400, "Org chart uploads on this route must be an image.", "ORG_CHART_IMAGE_REQUIRED");
+  }
+  req.body.category = "org_chart";
+  await uploadAdminDocument(req, res);
 }
 
 export async function updateAdminDocument(req: Request, res: Response) {
