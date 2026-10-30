@@ -10,7 +10,7 @@ function cookieOptions(maxAgeMs: number, httpOnly: boolean) {
   return {
     httpOnly,
     secure: env.isProduction,
-    sameSite: "lax" as const,
+    sameSite: env.isProduction ? ("none" as const) : ("lax" as const),
     path: "/",
     maxAge: maxAgeMs,
     ...(env.sessionCookieDomain ? { domain: env.sessionCookieDomain } : {}),
