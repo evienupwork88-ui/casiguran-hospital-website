@@ -10,6 +10,7 @@ export interface EventRecord {
   startAt: string;
   endAt: string | null;
   coverImageUrl: string | null;
+  externalUrl: string | null;
   status: "draft" | "published";
   authorId: string | null;
   createdAt: string;
@@ -25,6 +26,7 @@ function mapEventRow(row: any): EventRecord {
     startAt: row.start_at,
     endAt: row.end_at ?? null,
     coverImageUrl: row.cover_image_url ?? null,
+    externalUrl: row.external_url ?? null,
     status: row.status,
     authorId: row.author_id ?? null,
     createdAt: row.created_at,
@@ -35,7 +37,7 @@ function mapEventRow(row: any): EventRecord {
 export async function listPublishedEvents(): Promise<EventRecord[]> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at")
+    .select("id, title, description, location, start_at, end_at, cover_image_url, external_url, status, author_id, created_at, updated_at")
     .eq("status", "published")
     .order("start_at", { ascending: true });
 
@@ -49,7 +51,7 @@ export async function listPublishedEvents(): Promise<EventRecord[]> {
 export async function getPublishedEventById(id: string): Promise<EventRecord | null> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at")
+    .select("id, title, description, location, start_at, end_at, cover_image_url, external_url, status, author_id, created_at, updated_at")
     .eq("id", id)
     .eq("status", "published")
     .maybeSingle();
@@ -64,7 +66,7 @@ export async function getPublishedEventById(id: string): Promise<EventRecord | n
 export async function listAllEvents(): Promise<EventRecord[]> {
   const { data, error } = await supabase
     .from("events")
-    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at")
+    .select("id, title, description, location, start_at, end_at, cover_image_url, external_url, status, author_id, created_at, updated_at")
     .order("start_at", { ascending: true });
 
   if (error) {
@@ -82,6 +84,7 @@ export async function createEvent(input: CreateEventInput, authorId: string): Pr
     start_at: input.startAt,
     end_at: input.endAt && input.endAt.trim() !== "" ? input.endAt : null,
     cover_image_url: input.coverImageUrl?.trim() || null,
+    external_url: input.externalUrl?.trim() || null,
     status: input.status ?? "draft",
     author_id: authorId,
   };
@@ -89,7 +92,7 @@ export async function createEvent(input: CreateEventInput, authorId: string): Pr
   const { data, error } = await supabase
     .from("events")
     .insert(payload)
-    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at")
+    .select("id, title, description, location, start_at, end_at, cover_image_url, external_url, status, author_id, created_at, updated_at")
     .single();
 
   if (error) {
@@ -111,9 +114,10 @@ export async function updateEvent(id: string, input: UpdateEventInput): Promise<
   if (input.startAt !== undefined) payload.start_at = input.startAt;
   if (input.endAt !== undefined) payload.end_at = input.endAt || null;
   if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.status !== undefined) payload.status = input.status;
   const { data, error } = await supabase.from("events").update(payload).eq("id", id)
-    .select("id, title, description, location, start_at, end_at, cover_image_url, status, author_id, created_at, updated_at").single();
+    .select("id, title, description, location, start_at, end_at, cover_image_url, external_url, status, author_id, created_at, updated_at").single();
   if (error) throw new Error(`Failed to update event: ${error.message}`);
   if (!data) throw new AppError(404, "Event not found", "EVENT_NOT_FOUND");
   return mapEventRow(data);

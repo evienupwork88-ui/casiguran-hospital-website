@@ -8,6 +8,7 @@ export type EventItem = {
   startAt: string;
   endAt: string | null;
   coverImageUrl: string | null;
+  externalUrl: string | null;
   status: "draft" | "published";
   authorId: string | null;
   createdAt: string;
@@ -54,6 +55,7 @@ export async function createEvent(input: {
   startAt: string;
   endAt?: string;
   coverImageUrl?: string;
+  externalUrl?: string;
   status?: "draft" | "published";
 }): Promise<EventItem> {
   const csrfToken = getCsrfToken();

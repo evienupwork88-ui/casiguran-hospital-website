@@ -7,6 +7,7 @@ export const createEventSchema = z.object({
   startAt: z.string().datetime({ offset: true }),
   endAt: z.string().datetime({ offset: true }).optional().or(z.literal("")),
   coverImageUrl: z.string().trim().max(2048).url("Cover image URL must be valid").optional().or(z.literal("")),
+  externalUrl: z.string().trim().max(2048).url("Event link must be valid").refine((value) => /^https?:\/\//i.test(value), "Event link must use HTTP or HTTPS").optional().or(z.literal("")),
   status: z.enum(["draft", "published"]).default("draft"),
 });
 

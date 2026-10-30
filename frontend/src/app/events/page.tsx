@@ -25,23 +25,42 @@ function EventCard({ event }: { event: EventItem }) {
   const badge = formatEventDate(event.startAt);
   const startTime = formatEventTime(event.startAt);
   const endTime = formatEventTime(event.endAt);
-
-  return (
-    <article className="border border-slate-200 bg-white p-6 shadow-[0_14px_30px_rgba(37,27,88,0.05)] transition hover:border-violet-300">
-      <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
-        <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em]">{badge.month}</span>
-        <span className="text-lg font-semibold">{badge.day}</span>
-      </div>
-      <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{event.title}</h3>
-      {event.location ? <p className="mt-2 text-sm font-medium text-violet-700">{event.location}</p> : null}
-      {startTime ? (
-        <p className="mt-1 text-sm text-slate-500">
-          {startTime}
-          {endTime ? ` – ${endTime}` : ""}
-        </p>
+  const content = (
+    <>
+      {event.coverImageUrl ? (
+        <div
+          aria-label={`${event.title} thumbnail`}
+          className="h-48 bg-cover bg-center"
+          role="img"
+          style={{ backgroundImage: `url('${event.coverImageUrl}')` }}
+        />
       ) : null}
-      {event.description ? <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{event.description}</p> : null}
-    </article>
+      <div className="p-6">
+        <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
+          <span className="text-[0.68rem] font-semibold uppercase tracking-[0.16em]">{badge.month}</span>
+          <span className="text-lg font-semibold">{badge.day}</span>
+        </div>
+        <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{event.title}</h3>
+        {event.location ? <p className="mt-2 text-sm font-medium text-violet-700">{event.location}</p> : null}
+        {startTime ? (
+          <p className="mt-1 text-sm text-slate-500">
+            {startTime}
+            {endTime ? ` – ${endTime}` : ""}
+          </p>
+        ) : null}
+        {event.description ? <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{event.description}</p> : null}
+        {event.externalUrl ? <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">Open event link ↗</span> : null}
+      </div>
+    </>
+  );
+
+  const className = "block overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)] transition hover:border-violet-300";
+  return event.externalUrl ? (
+    <a href={event.externalUrl} target="_blank" rel="noopener noreferrer" className={className}>
+      {content}
+    </a>
+  ) : (
+    <article className={className}>{content}</article>
   );
 }
 

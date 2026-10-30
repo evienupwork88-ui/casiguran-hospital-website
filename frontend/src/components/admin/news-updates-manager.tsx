@@ -26,7 +26,6 @@ import {
 } from "@/lib/api/events";
 import { useNotifications } from "@/components/providers/notification-provider";
 import { toDateTimeLocalValue, toIsoDateTime } from "@/lib/date-time";
-import { CmsSpreadsheetImport } from "@/components/admin/cms-bulk-tools";
 import { bulkDeleteCmsRecords } from "@/lib/api/cms-bulk";
 
 const emptyNewsForm = {
@@ -55,6 +54,7 @@ const emptyEventForm = {
   startAt: "",
   endAt: "",
   coverImageUrl: "",
+  externalUrl: "",
   status: "draft" as "draft" | "published",
 };
 
@@ -122,15 +122,18 @@ function NewsFormFields({
         </select>
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Facebook post URL
+        External post link
         <input
           type="url"
           maxLength={2048}
           value={form.externalUrl}
           onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))}
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          placeholder="https://www.facebook.com/..."
+          placeholder="https://example.com/post"
         />
+        <span className="mt-1 block text-xs font-normal text-slate-500">
+          When published, clicking the news card or thumbnail opens this link.
+        </span>
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
         Preview caption
@@ -276,6 +279,11 @@ function EventFormFields({
         <input type="url" maxLength={2048} value={form.coverImageUrl} onChange={(event) => setForm((current) => ({ ...current, coverImageUrl: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" placeholder="https://example.com/event.jpg" />
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
+        External event link
+        <input type="url" maxLength={2048} value={form.externalUrl} onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" placeholder="https://example.com/event" />
+        <span className="mt-1 block text-xs font-normal text-slate-500">When published, clicking the event card or thumbnail opens this link.</span>
+      </label>
+      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
         Description
         <textarea maxLength={5000} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-2 min-h-28 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
       </label>
@@ -361,6 +369,7 @@ export function NewsUpdatesManager() {
         startAt: toDateTimeLocalValue(item.item.startAt),
         endAt: toDateTimeLocalValue(item.item.endAt),
         coverImageUrl: item.item.coverImageUrl ?? "",
+        externalUrl: item.item.externalUrl ?? "",
         status: item.item.status,
       });
     }
@@ -525,10 +534,6 @@ export function NewsUpdatesManager() {
         {renderForm("create")}
       </div>
 
-        <CmsSpreadsheetImport
-          resource={contentType === "news" ? "news" : contentType === "announcement" ? "announcements" : "events"}
-          onImported={loadItems}
-        />
         {selectedItems.length > 0 ? (
         <div className="mb-3 flex items-center justify-between rounded-xl bg-violet-50 px-4 py-3">
           <span className="text-sm font-medium text-violet-900">{selectedItems.length} selected</span>

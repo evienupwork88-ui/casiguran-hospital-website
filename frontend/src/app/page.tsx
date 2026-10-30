@@ -331,7 +331,7 @@ export default function Home() {
                       </p>
                       {isNews ? (
                         <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">
-                          {entry.item.externalUrl ? "View Facebook post ↗" : "Read more →"}
+                          {entry.item.externalUrl ? "Open original post ↗" : "Read more →"}
                         </span>
                       ) : null}
                     </div>
@@ -379,16 +379,35 @@ export default function Home() {
           {featuredEvents.length > 0 ? (
             featuredEvents.map((item) => {
               const eventDate = formatEventDate(item.startAt);
-              return (
-                <div key={item.id} className="rounded-[26px] border border-violet-200 bg-white p-6 shadow-[0_12px_28px_rgba(76,29,149,0.04)]">
-                  <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
-                    <span className="text-[0.64rem] font-semibold uppercase tracking-[0.14em]">{eventDate.month}</span>
-                    <span className="text-lg font-semibold">{eventDate.day}</span>
+              const content = (
+                <>
+                  {item.coverImageUrl ? (
+                    <div
+                      aria-label={`${item.title} thumbnail`}
+                      className="h-36 bg-cover bg-center"
+                      role="img"
+                      style={{ backgroundImage: `url('${item.coverImageUrl}')` }}
+                    />
+                  ) : null}
+                  <div className="p-6">
+                    <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
+                      <span className="text-[0.64rem] font-semibold uppercase tracking-[0.14em]">{eventDate.month}</span>
+                      <span className="text-lg font-semibold">{eventDate.day}</span>
+                    </div>
+                    <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
+                    {item.location ? <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p> : null}
+                    {item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.description}</p> : null}
+                    {item.externalUrl ? <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">Open event link ↗</span> : null}
                   </div>
-                  <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
-                  {item.location ? <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p> : null}
-                  {item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.description}</p> : null}
-                </div>
+                </>
+              );
+              const className = "overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]";
+              return item.externalUrl ? (
+                <a key={item.id} href={item.externalUrl} target="_blank" rel="noopener noreferrer" className={`${className} block`}>
+                  {content}
+                </a>
+              ) : (
+                <article key={item.id} className={className}>{content}</article>
               );
             })
           ) : (

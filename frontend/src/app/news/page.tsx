@@ -87,7 +87,7 @@ export default function NewsPage() {
                     <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{preview}</p>
                     {isNews ? (
                       <span className="mt-5 inline-flex text-sm font-semibold text-violet-700">
-                        {entry.item.externalUrl ? "View Facebook post ↗" : "Read more →"}
+                        {entry.item.externalUrl ? "Open original post ↗" : "Read more →"}
                       </span>
                     ) : entry.item.priority === "urgent" ? (
                       <span className="mt-4 inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-red-700">Urgent</span>
