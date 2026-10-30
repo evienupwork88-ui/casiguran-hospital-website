@@ -45,7 +45,12 @@ async function verifyAdminSession(request: NextRequest): Promise<NextResponse | 
   const sessionToken = request.cookies.get(sessionCookieName)?.value;
   if (!sessionToken) return adminLoginRedirect(request);
 
-  const backendUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000").replace(/\/+$/, "");
+  const backendUrl = (
+    process.env.BACKEND_API_URL ??
+    process.env.NEXT_PUBLIC_API_BASE_URL ??
+    process.env.NEXT_PUBLIC_API_URL ??
+    "http://localhost:4000"
+  ).replace(/\/+$/, "");
   try {
     const response = await fetch(`${backendUrl}/api/auth/me`, {
       headers: { Cookie: `${sessionCookieName}=${sessionToken}` },
