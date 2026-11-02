@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const createAnnouncementSchema = z.object({
+const announcementFieldsSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(200),
   body: z.string().trim().max(20000).optional().or(z.literal("")),
   excerpt: z.string().trim().max(300).optional().or(z.literal("")),
@@ -10,14 +10,17 @@ export const createAnnouncementSchema = z.object({
   status: z.enum(["draft", "published"]).default("draft"),
   publishAt: z.string().datetime({ offset: true }).optional().or(z.literal("")),
   expiresAt: z.string().datetime({ offset: true }).optional().or(z.literal("")),
-}).superRefine((input, context) => {
+  displayDate: z.string().date().optional().or(z.literal("")),
+});
+
+export const createAnnouncementSchema = announcementFieldsSchema.superRefine((input, context) => {
   if (!input.externalUrl && !input.body) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["body"], message: "Content is required when no external link is set." });
   }
 });
 
 export type CreateAnnouncementInput = z.infer<typeof createAnnouncementSchema>;
-export const updateAnnouncementSchema = createAnnouncementSchema.partial().superRefine((input, context) => {
+export const updateAnnouncementSchema = announcementFieldsSchema.partial().superRefine((input, context) => {
   if (input.body === "" && input.externalUrl === "") {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ["body"], message: "Content is required when no external link is set." });
   }

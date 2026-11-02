@@ -12,6 +12,7 @@ export interface NewsRecord {
   externalUrl: string | null;
   status: "draft" | "published";
   publishedAt: string | null;
+  displayDate: string | null;
   authorId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -28,6 +29,7 @@ function mapNewsRow(row: any): NewsRecord {
     externalUrl: row.external_url ?? null,
     status: row.status,
     publishedAt: row.published_at ?? null,
+    displayDate: row.display_date ?? null,
     authorId: row.author_id ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -37,7 +39,7 @@ function mapNewsRow(row: any): NewsRecord {
 export async function listPublishedNews(): Promise<NewsRecord[]> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at")
     .eq("status", "published")
     .order("published_at", { ascending: false });
 
@@ -51,7 +53,7 @@ export async function listPublishedNews(): Promise<NewsRecord[]> {
 export async function getPublishedNewsBySlug(slug: string): Promise<NewsRecord | null> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at")
     .eq("slug", slug)
     .eq("status", "published")
     .maybeSingle();
@@ -66,7 +68,7 @@ export async function getPublishedNewsBySlug(slug: string): Promise<NewsRecord |
 export async function listAllNews(): Promise<NewsRecord[]> {
   const { data, error } = await supabase
     .from("news_posts")
-    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -86,13 +88,14 @@ export async function createNews(input: CreateNewsInput, authorId: string): Prom
     external_url: input.externalUrl?.trim() || null,
     status: input.status ?? "draft",
     published_at: input.publishedAt && input.publishedAt.trim() !== "" ? input.publishedAt : null,
+    display_date: input.displayDate || null,
     author_id: authorId,
   };
 
   const { data, error } = await supabase
     .from("news_posts")
     .insert(payload)
-    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at")
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at")
     .single();
 
   if (error) {
@@ -119,8 +122,9 @@ export async function updateNews(id: string, input: UpdateNewsInput): Promise<Ne
   if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.status !== undefined) payload.status = input.status;
   if (input.publishedAt !== undefined) payload.published_at = input.publishedAt || null;
+  if (input.displayDate !== undefined) payload.display_date = input.displayDate || null;
   const { data, error } = await supabase.from("news_posts").update(payload).eq("id", id)
-    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, author_id, created_at, updated_at").single();
+    .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at").single();
   if (error) throw new Error(`Failed to update news article: ${error.message}`);
   if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
   return mapNewsRow(data);

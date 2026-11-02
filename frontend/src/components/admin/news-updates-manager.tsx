@@ -31,6 +31,7 @@ import { bulkDeleteCmsRecords } from "@/lib/api/cms-bulk";
 const emptyNewsForm = {
   title: "",
   slug: "",
+  displayDate: "",
   excerpt: "",
   body: "",
   coverImageUrl: "",
@@ -40,6 +41,7 @@ const emptyNewsForm = {
 
 const emptyAnnouncementForm = {
   title: "",
+  displayDate: "",
   excerpt: "",
   body: "",
   coverImageUrl: "",
@@ -67,6 +69,7 @@ type AnnouncementForm = typeof emptyAnnouncementForm;
 type EventForm = typeof emptyEventForm;
 type SharedContentForm = {
   title: string;
+  displayDate?: string;
   excerpt: string;
   body: string;
   coverImageUrl: string;
@@ -80,8 +83,8 @@ type ManagedItem =
   | { type: "event"; item: EventItem };
 
 function itemDate(item: ManagedItem): string {
-  if (item.type === "news") return item.item.publishedAt || item.item.createdAt;
-  if (item.type === "announcement") return item.item.publishAt || item.item.createdAt;
+  if (item.type === "news") return item.item.displayDate || item.item.publishedAt || item.item.createdAt;
+  if (item.type === "announcement") return item.item.displayDate || item.item.publishAt || item.item.createdAt;
   return item.item.startAt || item.item.createdAt;
 }
 
@@ -124,6 +127,20 @@ function SharedContentFields({
           <option value="published">Published</option>
         </select>
       </label>
+      {form.displayDate !== undefined ? (
+        <label className="block text-sm font-medium text-slate-700">
+          Display date
+          <input
+            type="date"
+            value={form.displayDate}
+            onChange={(event) => onChange({ displayDate: event.target.value })}
+            className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+          />
+          <span className="mt-1 block text-xs font-normal text-slate-500">
+            Date shown publicly; separate from when the post is published.
+          </span>
+        </label>
+      ) : null}
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
         External post link
         <input
@@ -319,6 +336,7 @@ export function NewsUpdatesManager() {
       setNewsForm({
         title: item.item.title,
         slug: item.item.slug,
+        displayDate: item.item.displayDate ?? "",
         excerpt: item.item.excerpt ?? "",
         body: item.item.body,
         coverImageUrl: item.item.coverImageUrl ?? "",
@@ -328,6 +346,7 @@ export function NewsUpdatesManager() {
     } else if (item.type === "announcement") {
       setAnnouncementForm({
         title: item.item.title,
+        displayDate: item.item.displayDate ?? "",
         excerpt: item.item.excerpt ?? "",
         body: item.item.body,
         coverImageUrl: item.item.coverImageUrl ?? "",

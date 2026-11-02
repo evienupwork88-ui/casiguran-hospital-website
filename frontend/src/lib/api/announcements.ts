@@ -9,6 +9,7 @@ export type AnnouncementItem = {
   externalUrl: string | null;
   priority: "normal" | "urgent";
   status: "draft" | "published";
+  displayDate: string | null;
   publishAt: string | null;
   expiresAt: string | null;
   authorId: string | null;
@@ -57,6 +58,7 @@ export async function createAnnouncement(input: {
   externalUrl?: string;
   priority?: "normal" | "urgent";
   status?: "draft" | "published";
+  displayDate?: string;
   publishAt?: string;
   expiresAt?: string;
 }): Promise<AnnouncementItem> {

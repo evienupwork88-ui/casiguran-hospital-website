@@ -47,15 +47,13 @@ export default async function NewsDetailPage({ params }: { params: Promise<{ slu
           <div className="mb-5 flex flex-wrap items-center gap-3 text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
             <span>News</span>
             <span className="text-slate-400">•</span>
-            <span>{formatDate(article.publishedAt || article.createdAt)}</span>
+            <span>{formatDate(article.displayDate || article.publishedAt || article.createdAt)}</span>
           </div>
 
           {article.coverImageUrl ? (
-            <div className="overflow-hidden rounded-[24px] border border-violet-200 bg-violet-50/60">
-              <div
-                className="h-[260px] bg-cover bg-center md:h-[360px]"
-                style={{ backgroundImage: `url('${article.coverImageUrl}')` }}
-              />
+            <div className="overflow-hidden rounded-[24px] border border-violet-200 bg-slate-100">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={article.coverImageUrl} alt={`${article.title} cover`} className="block h-auto w-full" />
             </div>
           ) : null}
 

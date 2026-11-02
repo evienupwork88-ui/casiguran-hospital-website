@@ -28,12 +28,10 @@ function EventCard({ event }: { event: EventItem }) {
   const content = (
     <>
       {event.coverImageUrl ? (
-        <div
-          aria-label={`${event.title} thumbnail`}
-          className="h-48 bg-cover bg-center"
-          role="img"
-          style={{ backgroundImage: `url('${event.coverImageUrl}')` }}
-        />
+        <div className="bg-slate-100">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={event.coverImageUrl} alt={`${event.title} cover`} className="block h-auto w-full" loading="lazy" />
+        </div>
       ) : null}
       <div className="p-6">
         <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">

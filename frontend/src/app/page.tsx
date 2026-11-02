@@ -30,7 +30,7 @@ const headerLogoClass =
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return "";
-  const date = new Date(dateStr);
+  const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T12:00:00` : dateStr);
   if (isNaN(date.getTime())) return dateStr;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -146,8 +146,8 @@ export default function Home() {
   }, [mobileOpen]);
 
   const featuredUpdates = [
-    ...announcements.map((item) => ({ type: "announcement" as const, item, date: item.publishAt || item.createdAt })),
-    ...news.map((item) => ({ type: "news" as const, item, date: item.publishedAt || item.createdAt })),
+    ...announcements.map((item) => ({ type: "announcement" as const, item, date: item.displayDate || item.publishAt || item.createdAt })),
+    ...news.map((item) => ({ type: "news" as const, item, date: item.displayDate || item.publishedAt || item.createdAt })),
   ]
     .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
     .slice(0, 3);
@@ -315,7 +315,10 @@ export default function Home() {
                 const content = (
                   <>
                     {coverImageUrl ? (
-                      <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url('${coverImageUrl}')` }} />
+                      <div className="bg-slate-100">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={coverImageUrl} alt={`${entry.item.title} cover`} className="block h-auto w-full" loading="lazy" />
+                      </div>
                     ) : null}
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
@@ -392,11 +395,11 @@ export default function Home() {
                 <>
                   {item.coverImageUrl ? (
                     <div
-                      aria-label={`${item.title} thumbnail`}
-                      className="h-36 bg-cover bg-center"
-                      role="img"
-                      style={{ backgroundImage: `url('${item.coverImageUrl}')` }}
-                    />
+                      className="bg-slate-100"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.coverImageUrl} alt={`${item.title} cover`} className="block h-auto w-full" loading="lazy" />
+                    </div>
                   ) : null}
                   <div className="p-6">
                     <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">

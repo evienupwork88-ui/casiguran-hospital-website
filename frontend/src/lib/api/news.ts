@@ -10,6 +10,7 @@ export type NewsItem = {
   externalUrl: string | null;
   status: "draft" | "published";
   publishedAt: string | null;
+  displayDate: string | null;
   authorId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -71,6 +72,7 @@ export async function createNews(input: {
   externalUrl?: string;
   status?: "draft" | "published";
   publishedAt?: string;
+  displayDate?: string;
 }): Promise<NewsItem> {
   const csrfToken = getCsrfToken();
 

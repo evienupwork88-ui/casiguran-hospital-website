@@ -14,6 +14,7 @@ const newsFieldsSchema = z.object({
   externalUrl: z.string().trim().max(2048).url("Facebook post URL must be valid").refine((value) => /^https?:\/\//i.test(value), "Facebook post URL must use HTTP or HTTPS").optional().or(z.literal("")),
   status: z.enum(["draft", "published"]).optional(),
   publishedAt: z.string().datetime({ offset: true }).optional().or(z.literal("")),
+  displayDate: z.string().date().optional().or(z.literal("")),
 });
 
 export const createNewsSchema = newsFieldsSchema.superRefine((input, context) => {
