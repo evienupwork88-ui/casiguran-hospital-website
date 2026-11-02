@@ -48,7 +48,7 @@ function EventCard({ event }: { event: EventItem }) {
             {endTime ? ` – ${endTime}` : ""}
           </p>
         ) : null}
-        {event.description ? <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{event.description}</p> : null}
+        {event.excerpt || event.description ? <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{event.excerpt || event.description}</p> : null}
         {event.externalUrl ? <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">Open event link ↗</span> : null}
       </div>
     </>

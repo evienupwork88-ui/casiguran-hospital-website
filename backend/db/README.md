@@ -74,6 +74,7 @@ Migration 0042 adds contact-message triage/audit fields and the editable FAQ CMS
 Migration 0043 adds editor change requests and a private Supabase Storage bucket for staged uploads. Apply it before enabling editor approvals.
 Migration 0044 adds optional external links to news previews. Apply it before saving Facebook post URLs in the News CMS.
 Migration 0045 adds optional external links to events. Apply it before saving event links in the Events CMS.
+Migration 0046 adds shared preview captions, cover images, and external links to announcements, plus preview captions to events. Apply it before using the shared News and Updates form.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
 Re-running the file will error on `CREATE TABLE` (tables already
@@ -150,6 +151,8 @@ For optional external URLs on News preview cards, run
 [`migrations/0044_news_external_url.sql`](migrations/0044_news_external_url.sql).
 For optional external URLs on event cards, run
 [`migrations/0045_events_external_url.sql`](migrations/0045_events_external_url.sql).
+For shared announcement and event preview content, run
+[`migrations/0046_shared_update_content.sql`](migrations/0046_shared_update_content.sql).
 For the Emergency Department CMS and organizational chart, run
 [`migrations/0026_emergency_department_content.sql`](migrations/0026_emergency_department_content.sql).
 For the Hospital History image gallery and header slideshow, run

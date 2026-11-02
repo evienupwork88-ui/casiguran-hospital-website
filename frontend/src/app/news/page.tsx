@@ -69,14 +69,15 @@ export default function NewsPage() {
             {feed.map((entry) => {
               const isNews = entry.type === "news";
               const title = entry.item.title;
-              const preview = isNews
-                ? entry.item.excerpt || (entry.item.body.length > 140 ? `${entry.item.body.slice(0, 140)}...` : entry.item.body)
-                : entry.item.body;
+              const body = entry.item.body;
+              const preview = entry.item.excerpt || (body.length > 140 ? `${body.slice(0, 140)}...` : body);
+              const externalUrl = entry.item.externalUrl;
+              const coverImageUrl = entry.item.coverImageUrl;
               const card = (
                 <>
                   <div
                     className="h-52 bg-[linear-gradient(135deg,#f3e8ff,#e2e8f0)] bg-cover bg-center"
-                    style={isNews && entry.item.coverImageUrl ? { backgroundImage: `url('${entry.item.coverImageUrl}')` } : undefined}
+                    style={coverImageUrl ? { backgroundImage: `url('${coverImageUrl}')` } : undefined}
                   />
                   <div className="border-t-2 border-violet-100 p-6">
                     <div className="flex items-center justify-between gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-violet-700">
@@ -85,27 +86,35 @@ export default function NewsPage() {
                     </div>
                     <h2 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{title}</h2>
                     <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{preview}</p>
-                    {isNews ? (
+                    {externalUrl ? (
                       <span className="mt-5 inline-flex text-sm font-semibold text-violet-700">
-                        {entry.item.externalUrl ? "Open original post ↗" : "Read more →"}
+                        Open original post ↗
                       </span>
-                    ) : entry.item.priority === "urgent" ? (
+                    ) : !isNews && entry.item.priority === "urgent" ? (
                       <span className="mt-4 inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-red-700">Urgent</span>
                     ) : null}
                   </div>
                 </>
               );
 
-              return isNews ? (
+              return isNews && !externalUrl ? (
                 <Link
                   key={`news-${entry.item.id}`}
-                  href={entry.item.externalUrl || `/news/${encodeURIComponent(entry.item.slug)}`}
-                  target={entry.item.externalUrl ? "_blank" : undefined}
-                  rel={entry.item.externalUrl ? "noopener noreferrer" : undefined}
+                  href={`/news/${encodeURIComponent(entry.item.slug)}`}
                   className="group overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)] transition hover:border-violet-300"
                 >
                   {card}
                 </Link>
+              ) : externalUrl ? (
+                <a
+                  key={`${entry.type}-${entry.item.id}`}
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)] transition hover:border-violet-300"
+                >
+                  {card}
+                </a>
               ) : (
                 <article key={`announcement-${entry.item.id}`} className="overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)]">
                   {card}

@@ -40,7 +40,10 @@ const emptyNewsForm = {
 
 const emptyAnnouncementForm = {
   title: "",
+  excerpt: "",
   body: "",
+  coverImageUrl: "",
+  externalUrl: "",
   priority: "normal" as "normal" | "urgent",
   status: "draft" as "draft" | "published",
   publishAt: "",
@@ -49,7 +52,8 @@ const emptyAnnouncementForm = {
 
 const emptyEventForm = {
   title: "",
-  description: "",
+  excerpt: "",
+  body: "",
   location: "",
   startAt: "",
   endAt: "",
@@ -61,6 +65,14 @@ const emptyEventForm = {
 type NewsForm = typeof emptyNewsForm;
 type AnnouncementForm = typeof emptyAnnouncementForm;
 type EventForm = typeof emptyEventForm;
+type SharedContentForm = {
+  title: string;
+  excerpt: string;
+  body: string;
+  coverImageUrl: string;
+  externalUrl: string;
+  status: "draft" | "published";
+};
 type ContentType = "news" | "announcement" | "event";
 type ManagedItem =
   | { type: "news"; item: NewsItem }
@@ -80,12 +92,14 @@ function formatDate(value: string): string {
     : date.toLocaleDateString("en-PH", { year: "numeric", month: "short", day: "numeric" });
 }
 
-function NewsFormFields({
+function SharedContentFields({
   form,
-  setForm,
+  onChange,
+  bodyRequired,
 }: {
-  form: NewsForm;
-  setForm: React.Dispatch<React.SetStateAction<NewsForm>>;
+  form: SharedContentForm;
+  onChange: (updates: Partial<SharedContentForm>) => void;
+  bodyRequired: boolean;
 }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
@@ -94,19 +108,8 @@ function NewsFormFields({
         <input
           maxLength={200}
           value={form.title}
-          onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+          onChange={(event) => onChange({ title: event.target.value })}
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          required
-        />
-      </label>
-      <label className="block text-sm font-medium text-slate-700">
-        Slug
-        <input
-          maxLength={200}
-          value={form.slug}
-          onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          placeholder="health-update"
           required
         />
       </label>
@@ -114,7 +117,7 @@ function NewsFormFields({
         Status
         <select
           value={form.status}
-          onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as NewsForm["status"] }))}
+          onChange={(event) => onChange({ status: event.target.value as SharedContentForm["status"] })}
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
         >
           <option value="draft">Draft</option>
@@ -127,12 +130,12 @@ function NewsFormFields({
           type="url"
           maxLength={2048}
           value={form.externalUrl}
-          onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))}
+          onChange={(event) => onChange({ externalUrl: event.target.value })}
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
           placeholder="https://example.com/post"
         />
         <span className="mt-1 block text-xs font-normal text-slate-500">
-          When published, clicking the news card or thumbnail opens this link.
+          When published, clicking the post or thumbnail opens this link.
         </span>
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
@@ -140,27 +143,30 @@ function NewsFormFields({
         <textarea
           maxLength={300}
           value={form.excerpt}
-          onChange={(event) => setForm((current) => ({ ...current, excerpt: event.target.value }))}
+          onChange={(event) => onChange({ excerpt: event.target.value })}
           className="mt-2 min-h-24 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
         />
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Article body
+        Content
         <textarea
           maxLength={20000}
           value={form.body}
-          onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))}
+          onChange={(event) => onChange({ body: event.target.value })}
           className="mt-2 min-h-36 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          required={!form.externalUrl.trim()}
+          required={bodyRequired && !form.externalUrl.trim()}
         />
-        <span className="mt-1 block text-xs font-normal text-slate-500">Optional when a Facebook post URL is set.</span>
+        <span className="mt-1 block text-xs font-normal text-slate-500">
+          {bodyRequired ? "Optional when an external link is set." : "Optional."}
+        </span>
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
         Cover image URL
         <input
+          type="url"
           maxLength={2048}
           value={form.coverImageUrl}
-          onChange={(event) => setForm((current) => ({ ...current, coverImageUrl: event.target.value }))}
+          onChange={(event) => onChange({ coverImageUrl: event.target.value })}
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
           placeholder="https://example.com/image.jpg"
         />
@@ -169,7 +175,29 @@ function NewsFormFields({
   );
 }
 
-function AnnouncementFormFields({
+function NewsSpecificFields({
+  form,
+  setForm,
+}: {
+  form: NewsForm;
+  setForm: React.Dispatch<React.SetStateAction<NewsForm>>;
+}) {
+  return (
+    <label className="mt-5 block text-sm font-medium text-slate-700">
+      Slug
+      <input
+        maxLength={200}
+        value={form.slug}
+        onChange={(event) => setForm((current) => ({ ...current, slug: event.target.value }))}
+        className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+        placeholder="health-update"
+        required
+      />
+    </label>
+  );
+}
+
+function AnnouncementSpecificFields({
   form,
   setForm,
 }: {
@@ -178,16 +206,6 @@ function AnnouncementFormFields({
 }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Title
-        <input
-          maxLength={200}
-          value={form.title}
-          onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          required
-        />
-      </label>
       <label className="block text-sm font-medium text-slate-700">
         Priority
         <select
@@ -197,17 +215,6 @@ function AnnouncementFormFields({
         >
           <option value="normal">Normal</option>
           <option value="urgent">Urgent</option>
-        </select>
-      </label>
-      <label className="block text-sm font-medium text-slate-700">
-        Status
-        <select
-          value={form.status}
-          onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as AnnouncementForm["status"] }))}
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-        >
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
         </select>
       </label>
       <label className="block text-sm font-medium text-slate-700">
@@ -228,21 +235,11 @@ function AnnouncementFormFields({
           className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
         />
       </label>
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Content
-        <textarea
-          maxLength={5000}
-          value={form.body}
-          onChange={(event) => setForm((current) => ({ ...current, body: event.target.value }))}
-          className="mt-2 min-h-36 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          required
-        />
-      </label>
     </div>
   );
 }
 
-function EventFormFields({
+function EventSpecificFields({
   form,
   setForm,
 }: {
@@ -251,10 +248,6 @@ function EventFormFields({
 }) {
   return (
     <div className="grid gap-5 md:grid-cols-2">
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Title
-        <input maxLength={200} required value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
-      </label>
       <label className="block text-sm font-medium text-slate-700">
         Start date & time
         <input type="datetime-local" required value={form.startAt} onChange={(event) => setForm((current) => ({ ...current, startAt: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
@@ -266,26 +259,6 @@ function EventFormFields({
       <label className="block text-sm font-medium text-slate-700">
         Location
         <input maxLength={200} value={form.location} onChange={(event) => setForm((current) => ({ ...current, location: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
-      </label>
-      <label className="block text-sm font-medium text-slate-700">
-        Status
-        <select value={form.status} onChange={(event) => setForm((current) => ({ ...current, status: event.target.value as EventForm["status"] }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900">
-          <option value="draft">Draft</option>
-          <option value="published">Published</option>
-        </select>
-      </label>
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Cover image URL
-        <input type="url" maxLength={2048} value={form.coverImageUrl} onChange={(event) => setForm((current) => ({ ...current, coverImageUrl: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" placeholder="https://example.com/event.jpg" />
-      </label>
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        External event link
-        <input type="url" maxLength={2048} value={form.externalUrl} onChange={(event) => setForm((current) => ({ ...current, externalUrl: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" placeholder="https://example.com/event" />
-        <span className="mt-1 block text-xs font-normal text-slate-500">When published, clicking the event card or thumbnail opens this link.</span>
-      </label>
-      <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Description
-        <textarea maxLength={5000} value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} className="mt-2 min-h-28 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900" />
       </label>
     </div>
   );
@@ -355,7 +328,10 @@ export function NewsUpdatesManager() {
     } else if (item.type === "announcement") {
       setAnnouncementForm({
         title: item.item.title,
+        excerpt: item.item.excerpt ?? "",
         body: item.item.body,
+        coverImageUrl: item.item.coverImageUrl ?? "",
+        externalUrl: item.item.externalUrl ?? "",
         priority: item.item.priority,
         status: item.item.status,
         publishAt: toDateTimeLocalValue(item.item.publishAt),
@@ -364,7 +340,8 @@ export function NewsUpdatesManager() {
     } else {
       setEventForm({
         title: item.item.title,
-        description: item.item.description ?? "",
+        excerpt: item.item.excerpt ?? "",
+        body: item.item.description ?? "",
         location: item.item.location ?? "",
         startAt: toDateTimeLocalValue(item.item.startAt),
         endAt: toDateTimeLocalValue(item.item.endAt),
@@ -408,8 +385,10 @@ export function NewsUpdatesManager() {
           showSuccess("Update created.", "Saved");
         }
       } else {
+        const { body, ...eventFields } = eventForm;
         const payload = {
-          ...eventForm,
+          ...eventFields,
+          description: body,
           startAt: toIsoDateTime(eventForm.startAt),
           endAt: eventForm.endAt ? toIsoDateTime(eventForm.endAt) : "",
         };
@@ -502,11 +481,34 @@ export function NewsUpdatesManager() {
             </select>
           </label>
         ) : null}
-        {contentType === "news"
-          ? <NewsFormFields form={newsForm} setForm={setNewsForm} />
-          : contentType === "announcement"
-            ? <AnnouncementFormFields form={announcementForm} setForm={setAnnouncementForm} />
-            : <EventFormFields form={eventForm} setForm={setEventForm} />}
+        {contentType === "news" ? (
+          <>
+            <SharedContentFields
+              form={newsForm}
+              onChange={(updates) => setNewsForm((current) => ({ ...current, ...updates }))}
+              bodyRequired
+            />
+            <NewsSpecificFields form={newsForm} setForm={setNewsForm} />
+          </>
+        ) : contentType === "announcement" ? (
+          <>
+            <SharedContentFields
+              form={announcementForm}
+              onChange={(updates) => setAnnouncementForm((current) => ({ ...current, ...updates }))}
+              bodyRequired
+            />
+            <AnnouncementSpecificFields form={announcementForm} setForm={setAnnouncementForm} />
+          </>
+        ) : (
+          <>
+            <SharedContentFields
+              form={eventForm}
+              onChange={(updates) => setEventForm((current) => ({ ...current, ...updates }))}
+              bodyRequired={false}
+            />
+            <EventSpecificFields form={eventForm} setForm={setEventForm} />
+          </>
+        )}
         {error ? (
           <div role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
         ) : null}

@@ -4,6 +4,9 @@ export type AnnouncementItem = {
   id: string;
   title: string;
   body: string;
+  excerpt: string | null;
+  coverImageUrl: string | null;
+  externalUrl: string | null;
   priority: "normal" | "urgent";
   status: "draft" | "published";
   publishAt: string | null;
@@ -49,6 +52,9 @@ export async function getAdminAnnouncements(): Promise<AnnouncementItem[]> {
 export async function createAnnouncement(input: {
   title: string;
   body: string;
+  excerpt?: string;
+  coverImageUrl?: string;
+  externalUrl?: string;
   priority?: "normal" | "urgent";
   status?: "draft" | "published";
   publishAt?: string;

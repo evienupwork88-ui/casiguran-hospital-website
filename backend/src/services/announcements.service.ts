@@ -6,6 +6,9 @@ export interface AnnouncementRecord {
   id: string;
   title: string;
   body: string;
+  excerpt: string | null;
+  coverImageUrl: string | null;
+  externalUrl: string | null;
   priority: "normal" | "urgent";
   status: "draft" | "published";
   publishAt: string | null;
@@ -20,6 +23,9 @@ function mapAnnouncementRow(row: any): AnnouncementRecord {
     id: row.id,
     title: row.title,
     body: row.body,
+    excerpt: row.excerpt ?? null,
+    coverImageUrl: row.cover_image_url ?? null,
+    externalUrl: row.external_url ?? null,
     priority: row.priority,
     status: row.status,
     publishAt: row.publish_at ?? null,
@@ -34,7 +40,7 @@ export async function listPublishedAnnouncements(): Promise<AnnouncementRecord[]
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("announcements")
-    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
+    .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .eq("status", "published")
     .or(`publish_at.is.null,publish_at.lte.${now}`)
     .or(`expires_at.is.null,expires_at.gt.${now}`)
@@ -51,7 +57,7 @@ export async function getPublishedAnnouncementById(id: string): Promise<Announce
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("announcements")
-    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
+    .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .eq("id", id)
     .eq("status", "published")
     .or(`publish_at.is.null,publish_at.lte.${now}`)
@@ -68,7 +74,7 @@ export async function getPublishedAnnouncementById(id: string): Promise<Announce
 export async function listAllAnnouncements(): Promise<AnnouncementRecord[]> {
   const { data, error } = await supabase
     .from("announcements")
-    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
+    .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .order("created_at", { ascending: false });
 
   if (error) {
@@ -84,7 +90,10 @@ export async function createAnnouncement(
 ): Promise<AnnouncementRecord> {
   const payload = {
     title: input.title,
-    body: input.body,
+    body: input.body?.trim() ?? "",
+    excerpt: input.excerpt?.trim() || null,
+    cover_image_url: input.coverImageUrl?.trim() || null,
+    external_url: input.externalUrl?.trim() || null,
     priority: input.priority ?? "normal",
     status: input.status ?? "draft",
     publish_at: input.publishAt && input.publishAt.trim() !== "" ? input.publishAt : null,
@@ -95,7 +104,7 @@ export async function createAnnouncement(
   const { data, error } = await supabase
     .from("announcements")
     .insert(payload)
-    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
+    .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, publish_at, expires_at, author_id, created_at, updated_at")
     .single();
 
   if (error) {
@@ -112,13 +121,16 @@ export async function createAnnouncement(
 export async function updateAnnouncement(id: string, input: UpdateAnnouncementInput): Promise<AnnouncementRecord> {
   const payload: Record<string, unknown> = {};
   if (input.title !== undefined) payload.title = input.title;
-  if (input.body !== undefined) payload.body = input.body;
+  if (input.body !== undefined) payload.body = input.body.trim();
+  if (input.excerpt !== undefined) payload.excerpt = input.excerpt.trim() || null;
+  if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.priority !== undefined) payload.priority = input.priority;
   if (input.status !== undefined) payload.status = input.status;
   if (input.publishAt !== undefined) payload.publish_at = input.publishAt || null;
   if (input.expiresAt !== undefined) payload.expires_at = input.expiresAt || null;
   const { data, error } = await supabase.from("announcements").update(payload).eq("id", id)
-    .select("id, title, body, priority, status, publish_at, expires_at, author_id, created_at, updated_at").single();
+    .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, publish_at, expires_at, author_id, created_at, updated_at").single();
   if (error) throw new Error(`Failed to update announcement: ${error.message}`);
   if (!data) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
   return mapAnnouncementRow(data);

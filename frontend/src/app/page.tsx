@@ -263,7 +263,7 @@ export default function Home() {
             <h2 className="mt-4 max-w-md text-3xl font-semibold leading-tight text-slate-950 sm:text-4xl">
               {aboutPage?.title || "Trusted care in our local community"}
             </h2>
-            <Link href="/about" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900">
+            <Link href="/vision-mission" className="mt-7 inline-flex items-center gap-2 text-sm font-semibold text-violet-700 hover:text-violet-900">
               Learn more <ArrowRight size={15} />
             </Link>
           </div>
@@ -309,10 +309,13 @@ export default function Home() {
             {featuredUpdates.length > 0 ? (
               featuredUpdates.map((entry) => {
                 const isNews = entry.type === "news";
+                const externalUrl = entry.item.externalUrl;
+                const coverImageUrl = entry.item.coverImageUrl;
+                const body = entry.item.body;
                 const content = (
                   <>
-                    {isNews && entry.item.coverImageUrl ? (
-                      <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url('${entry.item.coverImageUrl}')` }} />
+                    {coverImageUrl ? (
+                      <div className="h-32 bg-cover bg-center" style={{ backgroundImage: `url('${coverImageUrl}')` }} />
                     ) : null}
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
@@ -325,13 +328,11 @@ export default function Home() {
                       </div>
                       <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{entry.item.title}</h3>
                       <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">
-                        {isNews
-                          ? entry.item.excerpt || (entry.item.body.length > 140 ? `${entry.item.body.slice(0, 140)}...` : entry.item.body)
-                          : entry.item.body}
+                        {entry.item.excerpt || (body.length > 140 ? `${body.slice(0, 140)}...` : body)}
                       </p>
-                      {isNews ? (
+                      {externalUrl ? (
                         <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">
-                          {entry.item.externalUrl ? "Open original post ↗" : "Read more →"}
+                          Open original post ↗
                         </span>
                       ) : null}
                     </div>
@@ -339,16 +340,24 @@ export default function Home() {
                 );
                 const cardClass = "overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]";
 
-                return isNews ? (
+                return isNews && !externalUrl ? (
                   <Link
                     key={`news-${entry.item.id}`}
-                    href={entry.item.externalUrl || `/news/${encodeURIComponent(entry.item.slug)}`}
-                    target={entry.item.externalUrl ? "_blank" : undefined}
-                    rel={entry.item.externalUrl ? "noopener noreferrer" : undefined}
+                    href={`/news/${encodeURIComponent(entry.item.slug)}`}
                     className={cardClass}
                   >
                     {content}
                   </Link>
+                ) : externalUrl ? (
+                  <a
+                    key={`${entry.type}-${entry.item.id}`}
+                    href={externalUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${cardClass} block`}
+                  >
+                    {content}
+                  </a>
                 ) : (
                   <article key={`announcement-${entry.item.id}`} className={cardClass}>{content}</article>
                 );
@@ -396,7 +405,7 @@ export default function Home() {
                     </div>
                     <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
                     {item.location ? <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p> : null}
-                    {item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.description}</p> : null}
+                    {item.excerpt || item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.excerpt || item.description}</p> : null}
                     {item.externalUrl ? <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">Open event link ↗</span> : null}
                   </div>
                 </>

@@ -7,6 +7,7 @@ export type EventItem = {
   location: string | null;
   startAt: string;
   endAt: string | null;
+  excerpt: string | null;
   coverImageUrl: string | null;
   externalUrl: string | null;
   status: "draft" | "published";
@@ -54,6 +55,7 @@ export async function createEvent(input: {
   location?: string;
   startAt: string;
   endAt?: string;
+  excerpt?: string;
   coverImageUrl?: string;
   externalUrl?: string;
   status?: "draft" | "published";
