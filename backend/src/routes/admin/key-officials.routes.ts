@@ -1,7 +1,10 @@
 import multer from "multer";
 import { Router } from "express";
 import {
+  addAdminKeyOfficialsSlideshowImages,
+  getAdminKeyOfficialsSlideshow,
   listAdminKeyOfficials,
+  removeAdminKeyOfficialsSlideshowImage,
   updateAdminKeyOfficial,
 } from "../../controllers/key-officials.controller";
 import { requireAuth } from "../../middleware/requireAuth";
@@ -20,6 +23,9 @@ const upload = multer({
 const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
+router.get("/slideshow", asyncHandler(getAdminKeyOfficialsSlideshow));
+router.post("/slideshow/images", requireCsrf, upload.array("images", 10), requireChangeApproval("Key Officials", "Add slideshow photos"), asyncHandler(addAdminKeyOfficialsSlideshowImages));
+router.delete("/slideshow/images/:index", requireCsrf, requireChangeApproval("Key Officials", "Remove slideshow photo"), asyncHandler(removeAdminKeyOfficialsSlideshowImage));
 router.get("/", asyncHandler(listAdminKeyOfficials));
 router.put("/:slug", requireCsrf, upload.single("photo"), validateBody(updateKeyOfficialSchema), requireChangeApproval("Key Officials", "Update"), asyncHandler(updateAdminKeyOfficial));
 

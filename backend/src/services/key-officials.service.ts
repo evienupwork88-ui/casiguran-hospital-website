@@ -37,6 +37,8 @@ export interface KeyOfficialRecord {
   updatedAt: string;
 }
 
+export type KeyOfficialsSlideshowRecord = { coverImages: { url: string }[] };
+
 type KeyOfficialRow = {
   id: string;
   slug: string;
@@ -101,6 +103,99 @@ async function getRows(): Promise<KeyOfficialRow[]> {
 
   if (error) throw new Error(`Failed to load Key Officials: ${error.message}`);
   return (data ?? []) as KeyOfficialRow[];
+}
+
+async function getSlideshowPaths(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("key_officials_slideshow")
+    .select("cover_image_paths")
+    .eq("id", 1)
+    .single();
+  if (error) throw new Error(`Failed to load Key Officials slideshow: ${error.message}`);
+  return data.cover_image_paths ?? [];
+}
+
+async function mapSlideshow(paths: string[]): Promise<KeyOfficialsSlideshowRecord> {
+  const coverImages = await Promise.all(paths.map(async (path) => {
+    const { data, error } = await supabase.storage
+      .from(env.storageBucketName)
+      .createSignedUrl(path, 60 * 60 * 24);
+    if (error) throw new Error(`Failed to create Key Officials slideshow image link: ${error.message}`);
+    return { url: data.signedUrl };
+  }));
+  return { coverImages };
+}
+
+export async function getKeyOfficialsSlideshow(): Promise<KeyOfficialsSlideshowRecord> {
+  return mapSlideshow(await getSlideshowPaths());
+}
+
+type UploadedSlideshowImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
+
+export async function addKeyOfficialsSlideshowImages(
+  files: UploadedSlideshowImage[],
+  updatedById: string,
+): Promise<KeyOfficialsSlideshowRecord> {
+  if (files.length === 0) throw new AppError(400, "Choose at least one Key Officials header photo.", "COVER_IMAGE_REQUIRED");
+  if (files.some((file) => file.size > PHOTO_MAX_BYTES)) {
+    throw new AppError(400, "Key Officials header photos must be 5MB or smaller.", "KEY_OFFICIALS_SLIDESHOW_IMAGE_TOO_LARGE");
+  }
+  const validated = files.map((file) => {
+    const extension = file.originalname.toLowerCase().match(/\.([a-z0-9]+)$/)?.[1] ?? "";
+    const expected = PHOTO_TYPES[extension as keyof typeof PHOTO_TYPES];
+    if (!expected || file.mimetype.toLowerCase() !== expected.mime || !expected.signature(file.buffer)) {
+      throw new AppError(400, "Upload valid JPG, PNG, or WebP photos.", "INVALID_KEY_OFFICIALS_SLIDESHOW_IMAGE");
+    }
+    return { extension, mimeType: expected.mime };
+  });
+
+  const existingPaths = await getSlideshowPaths();
+  if (existingPaths.length + files.length > 10) {
+    throw new AppError(400, "The Key Officials header slideshow can contain up to 10 photos.", "TOO_MANY_COVER_IMAGES");
+  }
+  const uploadedPaths: string[] = [];
+  for (const [index, file] of files.entries()) {
+    const path = `key-officials/header/${crypto.randomUUID()}.${validated[index].extension}`;
+    const { error } = await supabase.storage.from(env.storageBucketName).upload(path, file.buffer, {
+      contentType: validated[index].mimeType,
+      cacheControl: "3600",
+      upsert: false,
+    });
+    if (error) {
+      if (uploadedPaths.length) {
+        const { error: cleanupError } = await supabase.storage.from(env.storageBucketName).remove(uploadedPaths);
+        if (cleanupError) throw new Error(`Failed to upload Key Officials photos and clean up earlier uploads: ${error.message}; ${cleanupError.message}`);
+      }
+      throw new Error(`Failed to upload Key Officials slideshow photo: ${error.message}`);
+    }
+    uploadedPaths.push(path);
+  }
+
+  const nextPaths = [...existingPaths, ...uploadedPaths];
+  const { error } = await supabase.from("key_officials_slideshow")
+    .update({ cover_image_paths: nextPaths, updated_by: updatedById })
+    .eq("id", 1);
+  if (error) {
+    const { error: cleanupError } = await supabase.storage.from(env.storageBucketName).remove(uploadedPaths);
+    if (cleanupError) throw new Error(`Failed to save Key Officials slideshow and clean up uploads: ${error.message}; ${cleanupError.message}`);
+    throw new Error(`Failed to save Key Officials slideshow: ${error.message}`);
+  }
+  return mapSlideshow(nextPaths);
+}
+
+export async function removeKeyOfficialsSlideshowImage(index: number, updatedById: string): Promise<KeyOfficialsSlideshowRecord> {
+  const paths = await getSlideshowPaths();
+  if (!Number.isInteger(index) || index < 0 || index >= paths.length) {
+    throw new AppError(404, "Key Officials slideshow photo not found.", "COVER_IMAGE_NOT_FOUND");
+  }
+  const [removedPath] = paths.splice(index, 1);
+  const { error } = await supabase.from("key_officials_slideshow")
+    .update({ cover_image_paths: paths, updated_by: updatedById })
+    .eq("id", 1);
+  if (error) throw new Error(`Failed to remove Key Officials slideshow photo: ${error.message}`);
+  const { error: storageError } = await supabase.storage.from(env.storageBucketName).remove([removedPath]);
+  if (storageError) throw new Error(`Key Officials slideshow photo removed from the page, but its stored file could not be deleted: ${storageError.message}`);
+  return mapSlideshow(paths);
 }
 
 export async function listKeyOfficials(): Promise<KeyOfficialRecord[]> {

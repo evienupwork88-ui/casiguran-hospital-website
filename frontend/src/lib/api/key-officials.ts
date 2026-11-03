@@ -15,6 +15,8 @@ export type KeyOfficialItem = {
   updatedAt: string;
 };
 
+export type KeyOfficialsSlideshow = { coverImages: { url: string }[] };
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 async function parseJson<T>(response: Response): Promise<T> {
@@ -29,6 +31,12 @@ export async function getPublicKeyOfficials(): Promise<KeyOfficialItem[]> {
   return data.items;
 }
 
+export async function getPublicKeyOfficialsSlideshow(): Promise<KeyOfficialsSlideshow> {
+  const response = await fetch(`${API_BASE_URL}/api/public/key-officials/slideshow`, { cache: "no-store" });
+  const data = await parseJson<{ item: KeyOfficialsSlideshow }>(response);
+  return data.item;
+}
+
 export async function getAdminKeyOfficials(): Promise<KeyOfficialItem[]> {
   const response = await fetch(`${API_BASE_URL}/api/admin/key-officials`, {
     credentials: "include",
@@ -36,6 +44,44 @@ export async function getAdminKeyOfficials(): Promise<KeyOfficialItem[]> {
   });
   const data = await parseJson<{ items: KeyOfficialItem[] }>(response);
   return data.items;
+}
+
+export async function getAdminKeyOfficialsSlideshow(): Promise<KeyOfficialsSlideshow> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/key-officials/slideshow`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const data = await parseJson<{ item: KeyOfficialsSlideshow }>(response);
+  return data.item;
+}
+
+export async function addKeyOfficialsSlideshowImages(files: File[]): Promise<KeyOfficialsSlideshow> {
+  const csrfToken = getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
+  const formData = new FormData();
+  files.forEach((file) => formData.append("images", file));
+  const response = await fetch(`${API_BASE_URL}/api/admin/key-officials/slideshow/images`, {
+    method: "POST",
+    credentials: "include",
+    headers,
+    body: formData,
+  });
+  const data = await parseJson<{ item: KeyOfficialsSlideshow }>(response);
+  return data.item;
+}
+
+export async function removeKeyOfficialsSlideshowImage(index: number): Promise<KeyOfficialsSlideshow> {
+  const csrfToken = getCsrfToken();
+  const headers: Record<string, string> = {};
+  if (csrfToken) headers["x-csrf-token"] = csrfToken;
+  const response = await fetch(`${API_BASE_URL}/api/admin/key-officials/slideshow/images/${index}`, {
+    method: "DELETE",
+    credentials: "include",
+    headers,
+  });
+  const data = await parseJson<{ item: KeyOfficialsSlideshow }>(response);
+  return data.item;
 }
 
 export async function updateKeyOfficial(slug: KeyOfficialItem["slug"], formData: FormData): Promise<KeyOfficialItem> {

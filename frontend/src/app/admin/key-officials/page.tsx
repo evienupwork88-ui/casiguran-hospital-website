@@ -1,8 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Images } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getAdminKeyOfficials, updateKeyOfficial, type KeyOfficialItem } from "@/lib/api/key-officials";
+import {
+  getAdminKeyOfficials,
+  updateKeyOfficial,
+  type KeyOfficialItem,
+} from "@/lib/api/key-officials";
 import { useNotifications } from "@/components/providers/notification-provider";
 
 const emptyOfficialSlots: KeyOfficialItem["slug"][] = [
@@ -32,8 +38,8 @@ export default function AdminKeyOfficialsPage() {
     async function loadOfficials() {
       try {
         setOfficials(await getAdminKeyOfficials());
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Unable to load Key Officials.");
+      } catch (loadError) {
+        setError(loadError instanceof Error ? loadError.message : "Unable to load Key Officials.");
       } finally {
         setIsLoading(false);
       }
@@ -78,15 +84,25 @@ export default function AdminKeyOfficialsPage() {
 
   return (
     <AdminShell title="Key Officials">
-      <p className="mb-6 text-slate-600">
-        Manage the four leadership profiles shown on the public Key Officials page. Upload a portrait and enter each official&apos;s name and position.
-      </p>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-slate-600">
+          Manage the four leadership profiles shown on the public Key Officials page. Upload a portrait and enter each official&apos;s name and position.
+        </p>
+        <Link
+          href="/admin/key-officials/slideshow"
+          className="inline-flex shrink-0 items-center justify-center gap-2 self-start rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-violet-800 sm:self-auto"
+        >
+          <Images size={17} aria-hidden="true" />
+          Manage Header Slideshow
+        </Link>
+      </div>
 
       {error ? <div role="alert" className="mb-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div> : null}
 
       {isLoading ? (
         <div role="status" aria-busy="true" className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-slate-600">Loading profiles...</div>
       ) : (
+        <>
         <div className="grid gap-5 xl:grid-cols-2">
           {emptyOfficialSlots.map((slug) => {
             const official = officials.find((item) => item.slug === slug);
@@ -164,6 +180,7 @@ export default function AdminKeyOfficialsPage() {
             );
           })}
         </div>
+        </>
       )}
     </AdminShell>
   );
