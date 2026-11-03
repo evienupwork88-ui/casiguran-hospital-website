@@ -8,6 +8,11 @@ import {
   updateAdminDocument,
   uploadAdminDocument,
 } from "../../controllers/documents.controller";
+import {
+  addAdminCitizensCharterSlideshowImages,
+  getAdminCitizensCharterSlideshow,
+  removeAdminCitizensCharterSlideshowImage,
+} from "../../controllers/citizens-charter-slideshow.controller";
 import { requireAuth } from "../../middleware/requireAuth";
 import { requireChangeApproval } from "../../middleware/admin-change-approval";
 import { requireCsrf } from "../../middleware/requireCsrf";
@@ -31,10 +36,18 @@ const uploadOrgChartImage = multer({
   },
 });
 
+const uploadCharterSlideshow = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
+
 const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
 router.get("/", asyncHandler(listAdminDocuments));
+router.get("/citizens-charter/slideshow", asyncHandler(getAdminCitizensCharterSlideshow));
+router.post("/citizens-charter/slideshow/images", requireCsrf, uploadCharterSlideshow.array("images", 10), requireChangeApproval("Citizen's Charter", "Add slideshow photos"), asyncHandler(addAdminCitizensCharterSlideshowImages));
+router.delete("/citizens-charter/slideshow/images/:index", requireCsrf, requireChangeApproval("Citizen's Charter", "Remove slideshow photo"), asyncHandler(removeAdminCitizensCharterSlideshowImage));
 router.post("/org-chart-image", requireCsrf, uploadOrgChartImage.single("file"), requireChangeApproval("Documents", "Upload organizational chart"), asyncHandler(uploadAdminOrgChartImage));
 router.post("/", requireCsrf, upload.single("file"), requireChangeApproval("Documents", "Upload"), asyncHandler(uploadAdminDocument));
 router.post("/legacy", requireCsrf, validateBody(createDocumentSchema), requireChangeApproval("Documents", "Create"), asyncHandler(createAdminDocument));

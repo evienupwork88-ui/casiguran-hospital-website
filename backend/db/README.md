@@ -76,6 +76,9 @@ Migration 0044 adds optional external links to news previews. Apply it before sa
 Migration 0045 adds optional external links to events. Apply it before saving event links in the Events CMS.
 Migration 0046 adds shared preview captions, cover images, and external links to announcements, plus preview captions to events. Apply it before using the shared News and Updates form.
 Migration 0047 adds manually selected public display dates to news and announcements. Apply it before using the date field in the News and Updates CMS.
+Migration 0048 creates the editable homepage photo gallery. Apply it before uploading homepage gallery photos.
+Migration 0049 creates the Key Officials header slideshow. Apply it before uploading Key Officials header photos.
+Migration 0050 creates the Citizen's Charter header slideshow. Apply it before uploading Citizen's Charter header photos.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
 Re-running the file will error on `CREATE TABLE` (tables already
@@ -156,6 +159,12 @@ For shared announcement and event preview content, run
 [`migrations/0046_shared_update_content.sql`](migrations/0046_shared_update_content.sql).
 For manually selected public dates on news and updates, run
 [`migrations/0047_content_display_dates.sql`](migrations/0047_content_display_dates.sql).
+For the homepage photo gallery, run
+[`migrations/0048_homepage_gallery.sql`](migrations/0048_homepage_gallery.sql).
+For the Key Officials header slideshow, run
+[`migrations/0049_key_officials_slideshow.sql`](migrations/0049_key_officials_slideshow.sql).
+For the Citizen's Charter header slideshow, run
+[`migrations/0050_citizens_charter_slideshow.sql`](migrations/0050_citizens_charter_slideshow.sql).
 For the Emergency Department CMS and organizational chart, run
 [`migrations/0026_emergency_department_content.sql`](migrations/0026_emergency_department_content.sql).
 For the Hospital History image gallery and header slideshow, run

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public/site-shell";
+import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
 
 function isHospitalDevelopmentPlan(document: DocumentItem) {
@@ -16,6 +17,8 @@ export default function TransparencySealPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [hasSlideshowError, setHasSlideshowError] = useState(false);
 
   useEffect(() => {
     async function loadPlan() {
@@ -32,6 +35,21 @@ export default function TransparencySealPage() {
     loadPlan();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getPublicCitizensCharterSlideshow()
+      .then((slideshow) => {
+        if (!cancelled) setHeroImages(slideshow.coverImages.map((image) => image.url));
+      })
+      .catch(() => {
+        if (!cancelled) setHasSlideshowError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const fileUrl = plan?.viewUrl ?? plan?.downloadUrl ?? null;
   const isPdf = plan?.mimeType === "application/pdf" || plan?.fileExtension?.toLowerCase() === "pdf";
 
@@ -39,14 +57,14 @@ export default function TransparencySealPage() {
     <PublicShell
       title="Transparency Seal"
       subtitle="Official transparency documents and institutional information published by Casiguran District Hospital."
+      heroImages={heroImages}
     >
       <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
-        <div className="mb-6 rounded-2xl border border-violet-200 bg-white p-6 shadow-sm">
-          <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Official transparency documents</p>
-          <h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-slate-900">Hospital Development Plan</h2>
-          <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-600">The official plan will appear here after it is uploaded and published through the hospital CMS.</p>
-        </div>
-
+        {hasSlideshowError ? (
+          <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Header photos could not be loaded. The Hospital Development Plan is still available.
+          </p>
+        ) : null}
         {isLoading ? (
           <div role="status" aria-busy="true" className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-slate-600">Loading document...</div>
         ) : hasError ? (
@@ -62,13 +80,16 @@ export default function TransparencySealPage() {
           <article className="rounded-2xl border border-violet-200 bg-white p-6 shadow-sm">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Published document</p>
+                <p className="text-xs font-bold uppercase tracking-[0.18em] text-violet-700">Official transparency documents</p>
                 <h3 className="mt-2 text-2xl font-semibold text-slate-900">{plan.title}</h3>
                 {plan.description ? <p className="mt-2 text-sm leading-6 text-slate-600">{plan.description}</p> : null}
               </div>
               <div className="flex flex-wrap gap-2">
-                {isPdf ? <button type="button" onClick={() => setIsViewerOpen(true)} className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">View PDF</button> : null}
-                <a href={plan.downloadUrl ?? fileUrl} download className="rounded-full border border-violet-200 bg-violet-50 px-4 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-100">Download</a>
+                {isPdf ? (
+                  <button type="button" onClick={() => setIsViewerOpen(true)} className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">View</button>
+                ) : (
+                  <a href={fileUrl} target="_blank" rel="noreferrer" className="rounded-full bg-violet-700 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-800">View</a>
+                )}
               </div>
             </div>
           </article>

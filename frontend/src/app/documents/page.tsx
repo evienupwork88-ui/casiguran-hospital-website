@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { PublicShell } from "@/components/public/site-shell";
+import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -64,6 +65,9 @@ function DocumentsContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [hasSlideshowError, setHasSlideshowError] = useState(false);
 
   const selectedCategory = searchParams.get("category") ?? undefined;
 
@@ -109,6 +113,25 @@ function DocumentsContent() {
     };
   }, [selectedCategory]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setHeroImages([]);
+    setHasSlideshowError(false);
+    if (selectedCategory !== "citizens_charter") return () => { cancelled = true; };
+
+    getPublicCitizensCharterSlideshow()
+      .then((slideshow) => {
+        if (!cancelled) setHeroImages(slideshow.coverImages.map((image) => image.url));
+      })
+      .catch(() => {
+        if (!cancelled) setHasSlideshowError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedCategory]);
+
   const isCharter = selectedCategory === "citizens_charter";
   const pageTitle = isCharter ? "Citizen's Charter" : "Documents & Reports";
   const pageSubtitle = isCharter
@@ -120,8 +143,13 @@ function DocumentsContent() {
   const selectedDownloadUrl = selected ? (selected.downloadUrl ?? selected.viewUrl) : undefined;
 
   return (
-    <PublicShell title={pageTitle} subtitle={pageSubtitle}>
+    <PublicShell title={pageTitle} subtitle={pageSubtitle} heroImages={heroImages}>
       <section className="mx-auto max-w-6xl px-6 pb-16 pt-8">
+        {hasSlideshowError ? (
+          <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Header photos could not be loaded. The document is still available.
+          </p>
+        ) : null}
         {isLoading ? (
           <div role="status" aria-busy="true" className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-600">
             Loading documents...
@@ -156,7 +184,7 @@ function DocumentsContent() {
                 ) : null}
 
                 <div className="mt-5 flex flex-col gap-2">
-                  {selectedDownloadUrl ? (
+                  {!isCharter && selectedDownloadUrl ? (
                     <a
                       href={selectedDownloadUrl}
                       download
@@ -164,12 +192,16 @@ function DocumentsContent() {
                     >
                       Download {(selected.fileExtension ?? "").replace(".", "").toUpperCase()}
                     </a>
-                  ) : (
-                    <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-center text-sm font-semibold text-slate-500">
-                      File unavailable
-                    </span>
-                  )}
-                  {selectedViewUrl ? (
+                  ) : null}
+                  {selectedViewUrl && isCharter ? (
+                    <button
+                      type="button"
+                      onClick={() => setIsViewerOpen(true)}
+                      className="rounded-full bg-violet-700 px-4 py-2.5 text-center text-sm font-semibold text-white hover:bg-violet-800"
+                    >
+                      View
+                    </button>
+                  ) : selectedViewUrl ? (
                     <a
                       href={selectedViewUrl}
                       target="_blank"
@@ -178,7 +210,11 @@ function DocumentsContent() {
                     >
                       Open in new tab
                     </a>
-                  ) : null}
+                  ) : (
+                    <span className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-center text-sm font-semibold text-slate-500">
+                      File unavailable
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -215,6 +251,19 @@ function DocumentsContent() {
           </div>
         )}
       </section>
+      {isViewerOpen && selected && selectedViewUrl ? (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4" role="dialog" aria-modal="true" aria-labelledby="citizens-charter-viewer-title">
+          <div className="flex h-[min(90vh,900px)] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className="flex items-center justify-between gap-4 border-b border-slate-200 px-4 py-3">
+              <h2 id="citizens-charter-viewer-title" className="text-base font-semibold text-slate-900">{selected.title}</h2>
+              <button type="button" onClick={() => setIsViewerOpen(false)} aria-label="Close Citizen's Charter viewer" className="rounded-full px-3 py-1.5 text-sm font-semibold text-slate-600 hover:bg-slate-100">Close</button>
+            </div>
+            <div className="min-h-0 flex-1 bg-slate-100">
+              <Preview doc={selected} />
+            </div>
+          </div>
+        </div>
+      ) : null}
     </PublicShell>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { CitizensCharterSlideshowManager } from "@/components/admin/citizens-charter-slideshow-manager";
 import { deleteDocument, getAdminDocuments, type DocumentItem, updateDocument, uploadDocument } from "@/lib/api/documents";
 import { useNotifications } from "@/components/providers/notification-provider";
 import { CmsBulkDeleteButton, CmsSpreadsheetImport } from "@/components/admin/cms-bulk-tools";
@@ -495,6 +496,8 @@ export default function AdminDocumentsPage() {
           Manage Hospital History
         </Link>
       </section>
+
+      <CitizensCharterSlideshowManager />
 
       {restoredDraft ? (
         <div role="status" className="mb-5 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">

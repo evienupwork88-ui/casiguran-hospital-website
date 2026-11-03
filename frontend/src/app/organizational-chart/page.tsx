@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PublicShell } from "@/components/public/site-shell";
+import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
 
 const MIN_ZOOM = 0.5;
@@ -14,6 +15,8 @@ export default function OrganizationalChartPage() {
   const [zoom, setZoom] = useState(1);
   const [isDragging, setIsDragging] = useState(false);
   const [isViewerOpen, setIsViewerOpen] = useState(false);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [hasSlideshowError, setHasSlideshowError] = useState(false);
   const dragStart = useRef<{
     pointerId: number;
     x: number;
@@ -36,6 +39,21 @@ export default function OrganizationalChartPage() {
     }
 
     loadChart();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicCitizensCharterSlideshow()
+      .then((slideshow) => {
+        if (!cancelled) setHeroImages(slideshow.coverImages.map((image) => image.url));
+      })
+      .catch(() => {
+        if (!cancelled) setHasSlideshowError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,8 +111,14 @@ export default function OrganizationalChartPage() {
     <PublicShell
       title="Organizational Chart"
       subtitle="View the hospital's current chart."
+      heroImages={heroImages}
     >
       <section className="mx-auto w-full max-w-none px-1 pb-16 sm:px-3 lg:px-5">
+        {hasSlideshowError ? (
+          <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Header photos could not be loaded. The organizational chart is still available.
+          </p>
+        ) : null}
         {isLoading ? (
           <div className="rounded-[26px] border border-violet-200 bg-white p-10 text-center text-slate-600">
             Loading chart...

@@ -4,14 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { Activity, ArrowRight, Building2, CalendarDays, FileText, HeartPulse, Mail, MapPin, Menu, Newspaper, Phone, X } from "lucide-react";
+import { Activity, ArrowLeft, ArrowRight, FileText, HeartPulse, Mail, MapPin, Menu, Newspaper, Phone, X } from "lucide-react";
 import { getPublicAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
 import { getPublicDocuments, type DocumentItem } from "@/lib/api/documents";
 import { getPublicEvents, type EventItem } from "@/lib/api/events";
 import { getPublicNews, type NewsItem } from "@/lib/api/news";
 import { getPublicPage, type PageItem } from "@/lib/api/pages";
 import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
+import { getPublicHomeGallery, type HomeGallery } from "@/lib/api/home-gallery";
 import { PublicDesktopNavigation, PublicMobileNavigation } from "@/components/public/public-navigation";
+import { HomeEventsCalendar } from "@/components/public/home-events-calendar";
 import { formatOfficeHours } from "@/lib/format-office-hours";
 
 const PGA_WEBSITE_URL = "https://auroraprovince.gov.ph/";
@@ -33,16 +35,6 @@ function formatDate(dateStr: string | null | undefined): string {
   const date = new Date(/^\d{4}-\d{2}-\d{2}$/.test(dateStr) ? `${dateStr}T12:00:00` : dateStr);
   if (isNaN(date.getTime())) return dateStr;
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
-
-function formatEventDate(dateStr: string | null | undefined): { month: string; day: string } {
-  if (!dateStr) return { month: "EVENT", day: "TBD" };
-  const date = new Date(dateStr);
-  if (isNaN(date.getTime())) return { month: "EVENT", day: "TBD" };
-  return {
-    month: date.toLocaleDateString("en-US", { month: "short" }).toUpperCase(),
-    day: String(date.getDate()),
-  };
 }
 
 function getDocumentPreviewKind(doc: DocumentItem): "pdf" | "image" | "other" {
@@ -76,9 +68,14 @@ export default function Home() {
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
   const [news, setNews] = useState<NewsItem[]>([]);
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [eventsError, setEventsError] = useState(false);
   const [documents, setDocuments] = useState<DocumentItem[]>([]);
   const [aboutPage, setAboutPage] = useState<PageItem | null>(null);
   const [homeError, setHomeError] = useState(false);
+  const [homeGallery, setHomeGallery] = useState<HomeGallery | null>(null);
+  const [homeGalleryError, setHomeGalleryError] = useState(false);
+  const [activeGalleryImage, setActiveGalleryImage] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadHomeData() {
@@ -89,16 +86,24 @@ export default function Home() {
         getPublicEvents(),
         getPublicDocuments(),
         getPublicPage("about"),
+        getPublicHomeGallery(),
       ]);
 
-      const [settingsResult, announcementsResult, newsResult, eventsResult, documentsResult, aboutPageResult] = results;
-      setHomeError(results.some((result) => result.status === "rejected"));
+      const [settingsResult, announcementsResult, newsResult, eventsResult, documentsResult, aboutPageResult, homeGalleryResult] = results;
+      setHomeError([...results.slice(0, 3), ...results.slice(4, 6)].some((result) => result.status === "rejected"));
       if (settingsResult.status === "fulfilled") setSettings(settingsResult.value);
       if (announcementsResult.status === "fulfilled") setAnnouncements(announcementsResult.value);
       if (newsResult.status === "fulfilled") setNews(newsResult.value);
       if (eventsResult.status === "fulfilled") setEvents(eventsResult.value);
+      else setEventsError(true);
+      setIsEventsLoading(false);
       if (documentsResult.status === "fulfilled") setDocuments(documentsResult.value);
       if (aboutPageResult.status === "fulfilled") setAboutPage(aboutPageResult.value);
+      if (homeGalleryResult.status === "fulfilled") {
+        setHomeGallery(homeGalleryResult.value);
+      } else {
+        setHomeGalleryError(true);
+      }
     }
 
     loadHomeData();
@@ -107,6 +112,28 @@ export default function Home() {
   useEffect(() => {
     setMobileOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const imageCount = homeGallery?.images.length ?? 0;
+    if (activeGalleryImage === null || imageCount === 0) return;
+
+    function handleGalleryKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") setActiveGalleryImage(null);
+      if (event.key === "ArrowLeft") {
+        setActiveGalleryImage((index) => index === null ? null : (index - 1 + imageCount) % imageCount);
+      }
+      if (event.key === "ArrowRight") {
+        setActiveGalleryImage((index) => index === null ? null : (index + 1) % imageCount);
+      }
+    }
+
+    document.addEventListener("keydown", handleGalleryKeyDown);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", handleGalleryKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [activeGalleryImage, homeGallery?.images.length]);
 
   useEffect(() => {
     if (!mobileOpen) {
@@ -151,7 +178,6 @@ export default function Home() {
   ]
     .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
     .slice(0, 3);
-  const featuredEvents = events.slice(0, 3);
   const featuredDocuments = documents.filter((doc) => doc.status === "published").slice(0, 3);
 
   return (
@@ -273,25 +299,106 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto grid max-w-7xl gap-5 px-5 pb-16 sm:px-8 md:grid-cols-[1.35fr_0.65fr]">
-        <div className="relative min-h-[260px] overflow-hidden bg-[#24164f]">
-          <Image src="/cdh-facade.png" alt="Casiguran District Hospital facility" fill className="object-cover opacity-70" />
-          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(36,22,79,0.92),rgba(36,22,79,0.2))]" />
-          <div className="relative flex min-h-[260px] max-w-md flex-col justify-end p-7 text-white sm:p-9">
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-violet-200">Photo highlights</p>
-            <h2 className="mt-3 text-2xl font-semibold text-white">A place prepared for community care</h2>
-            <p className="mt-3 text-sm leading-6 text-violet-100/80">Approved hospital photography can be featured here as it becomes available.</p>
-          </div>
+      {homeGalleryError ? (
+        <div role="alert" className="mx-auto mb-16 max-w-7xl px-5 text-sm text-amber-800 sm:px-8">
+          The hospital photo gallery is temporarily unavailable.
         </div>
-        <div className="flex min-h-[260px] flex-col justify-between border border-violet-200 bg-white p-7 shadow-[0_16px_36px_rgba(37,27,88,0.06)] sm:p-9">
-          <Building2 className="text-violet-700" size={26} strokeWidth={1.5} />
-          <div>
-            <p className="text-[0.68rem] font-bold uppercase tracking-[0.2em] text-violet-700">Future gallery space</p>
-            <h2 className="mt-3 text-2xl font-semibold text-slate-950">Facilities, people, and activities</h2>
-            <p className="mt-3 text-sm leading-6 text-slate-600">This visual structure is ready for approved institutional images without inventing people or events.</p>
+      ) : homeGallery?.images.length ? (
+        <section className="border-y border-violet-100 bg-[linear-gradient(135deg,#f5f3ff_0%,#ffffff_48%,#f0fdfa_100%)] py-14 sm:py-16">
+          <div className="mx-auto max-w-7xl px-5 sm:px-8">
+            <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Photo highlights</p>
+                <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">Life at Casiguran District Hospital</h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                  A look at the people, place, and moments behind the care we provide.
+                </p>
+              </div>
+              <span className="inline-flex w-fit items-center rounded-full border border-violet-200 bg-white/80 px-3.5 py-2 text-sm font-medium text-violet-900 shadow-sm">
+                {homeGallery.images.length} {homeGallery.images.length === 1 ? "photo" : "photos"}
+              </span>
+            </div>
+            <div className="grid auto-rows-[140px] grid-cols-2 gap-3 sm:auto-rows-[170px] sm:gap-4 lg:auto-rows-[180px] lg:grid-cols-4">
+            {homeGallery.images.map((image, index) => (
+              <button
+                key={`${image.url}-${index}`}
+                type="button"
+                onClick={() => setActiveGalleryImage(index)}
+                aria-label={`View hospital photo ${index + 1} of ${homeGallery.images.length}`}
+                className={`group relative overflow-hidden rounded-2xl border border-white bg-slate-200 text-left shadow-[0_12px_30px_rgba(46,16,101,0.12)] outline-none transition duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_38px_rgba(46,16,101,0.2)] focus-visible:ring-4 focus-visible:ring-violet-400 ${index === 0 ? "col-span-2 row-span-2" : ""}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={image.url}
+                  alt={`Casiguran District Hospital photo ${index + 1}`}
+                  className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.04]"
+                  loading="lazy"
+                />
+                <span className="absolute inset-0 bg-gradient-to-t from-slate-950/65 via-transparent to-slate-950/10 opacity-70 transition group-hover:opacity-100" />
+                <span className="absolute bottom-3 left-3 rounded-full border border-white/30 bg-slate-950/35 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm sm:bottom-4 sm:left-4">
+                  {index === 0 ? "Featured photo" : `Photo ${index + 1}`}
+                </span>
+                <span className="absolute bottom-3 right-3 rounded-full bg-white/95 px-3 py-1.5 text-xs font-semibold text-violet-900 opacity-0 shadow transition group-hover:opacity-100 group-focus-visible:opacity-100 sm:bottom-4 sm:right-4">
+                  View photo
+                </span>
+              </button>
+            ))}
+            </div>
           </div>
-        </div>
-      </section>
+          {activeGalleryImage !== null && homeGallery.images[activeGalleryImage] ? (
+            <div
+              className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/95 p-4 backdrop-blur-sm sm:p-8"
+              onClick={() => setActiveGalleryImage(null)}
+            >
+              <div
+                role="dialog"
+                aria-modal="true"
+                aria-label={`Hospital photo ${activeGalleryImage + 1} of ${homeGallery.images.length}`}
+                className="relative flex h-full w-full max-w-6xl items-center justify-center"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  onClick={() => setActiveGalleryImage(null)}
+                  aria-label="Close photo viewer"
+                  className="absolute right-0 top-0 z-10 rounded-full border border-white/20 bg-white/10 p-3 text-white transition hover:bg-white/20"
+                >
+                  <X size={22} />
+                </button>
+                {homeGallery.images.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveGalleryImage((index) => index === null ? null : (index - 1 + homeGallery.images.length) % homeGallery.images.length)}
+                    aria-label="Previous photo"
+                    className="absolute left-0 z-10 rounded-full border border-white/20 bg-white/10 p-3 text-white transition hover:bg-white/20"
+                  >
+                    <ArrowLeft size={22} />
+                  </button>
+                ) : null}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={homeGallery.images[activeGalleryImage].url}
+                  alt={`Casiguran District Hospital photo ${activeGalleryImage + 1}`}
+                  className="max-h-full max-w-[calc(100%-5rem)] object-contain"
+                />
+                {homeGallery.images.length > 1 ? (
+                  <button
+                    type="button"
+                    onClick={() => setActiveGalleryImage((index) => index === null ? null : (index + 1) % homeGallery.images.length)}
+                    aria-label="Next photo"
+                    className="absolute right-0 z-10 rounded-full border border-white/20 bg-white/10 p-3 text-white transition hover:bg-white/20"
+                  >
+                    <ArrowRight size={22} />
+                  </button>
+                ) : null}
+                <span className="absolute bottom-0 left-1/2 -translate-x-1/2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur-sm">
+                  {activeGalleryImage + 1} / {homeGallery.images.length}
+                </span>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       <section id="news-updates" className="border-y border-slate-200 bg-white py-14 sm:py-16">
         <div className="mx-auto max-w-7xl px-5 sm:px-8">
@@ -380,56 +487,23 @@ export default function Home() {
         <div className="mb-6 flex items-end justify-between gap-4">
           <div>
             <p className="text-[0.7rem] font-bold uppercase tracking-[0.22em] text-violet-700">Events</p>
-            <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Upcoming activities</h2>
+            <h2 className="mt-3 text-3xl font-semibold text-slate-950 sm:text-4xl">Events and activities calendar</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600 sm:text-base">Browse hospital and community activities by date.</p>
           </div>
-          <Link href="/events" className="hidden text-sm font-semibold text-violet-700 hover:text-violet-800 md:inline-flex">
-            View calendar →
-          </Link>
         </div>
-
-        <div className="grid gap-5 md:grid-cols-3">
-          {featuredEvents.length > 0 ? (
-            featuredEvents.map((item) => {
-              const eventDate = formatEventDate(item.startAt);
-              const content = (
-                <>
-                  {item.coverImageUrl ? (
-                    <div
-                      className="bg-slate-100"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.coverImageUrl} alt={`${item.title} cover`} className="block h-auto w-full" loading="lazy" />
-                    </div>
-                  ) : null}
-                  <div className="p-6">
-                    <div className="flex h-16 w-16 flex-col items-center justify-center rounded-[18px] bg-violet-100 text-center text-violet-800">
-                      <span className="text-[0.64rem] font-semibold uppercase tracking-[0.14em]">{eventDate.month}</span>
-                      <span className="text-lg font-semibold">{eventDate.day}</span>
-                    </div>
-                    <h3 className="mt-5 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{item.title}</h3>
-                    {item.location ? <p className="mt-2 text-sm font-medium text-violet-700">{item.location}</p> : null}
-                    {item.excerpt || item.description ? <p className="mt-3 text-base leading-7 text-slate-600">{item.excerpt || item.description}</p> : null}
-                    {item.externalUrl ? <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">Open event link ↗</span> : null}
-                  </div>
-                </>
-              );
-              const className = "overflow-hidden rounded-[26px] border border-violet-200 bg-white shadow-[0_12px_28px_rgba(76,29,149,0.04)]";
-              return item.externalUrl ? (
-                <a key={item.id} href={item.externalUrl} target="_blank" rel="noopener noreferrer" className={`${className} block`}>
-                  {content}
-                </a>
-              ) : (
-                <article key={item.id} className={className}>{content}</article>
-              );
-            })
-          ) : (
-            <div className="border border-dashed border-violet-200 bg-white p-10 text-center text-slate-600 md:col-span-3">
-              <CalendarDays className="mx-auto text-violet-500" size={28} strokeWidth={1.5} />
-              <p className="font-semibold text-slate-900">No upcoming events scheduled</p>
-              <p className="mt-2 text-sm">Hospital activities and community health schedules will be listed here.</p>
-            </div>
-          )}
-        </div>
+        <HomeEventsCalendar
+          events={events}
+          isLoading={isEventsLoading}
+          hasError={eventsError}
+          onRetry={() => {
+            setIsEventsLoading(true);
+            setEventsError(false);
+            void getPublicEvents()
+              .then(setEvents)
+              .catch(() => setEventsError(true))
+              .finally(() => setIsEventsLoading(false));
+          }}
+        />
       </section>
 
       <section id="resources" className="border-y border-slate-200 bg-white py-16">

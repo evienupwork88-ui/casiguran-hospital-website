@@ -79,6 +79,7 @@ export async function getMe(): Promise<AuthUser> {
   const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
     method: "GET",
     credentials: "include",
+    cache: "no-store",
   });
 
   const data = await parseJson<{ user: AuthUser; csrfToken?: string }>(response);

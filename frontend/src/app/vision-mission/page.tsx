@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public/site-shell";
+import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicPage, type PageItem } from "@/lib/api/pages";
 
 function toParagraphs(body?: string | null) {
@@ -24,6 +25,8 @@ export default function VisionMissionPage() {
   const [missionPage, setMissionPage] = useState<PageItem | null>(null);
   const [pledgePage, setPledgePage] = useState<PageItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [hasSlideshowError, setHasSlideshowError] = useState(false);
 
   useEffect(() => {
     async function loadData() {
@@ -46,6 +49,21 @@ export default function VisionMissionPage() {
     }
 
     loadData();
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPublicCitizensCharterSlideshow()
+      .then((slideshow) => {
+        if (!cancelled) setHeroImages(slideshow.coverImages.map((image) => image.url));
+      })
+      .catch(() => {
+        if (!cancelled) setHasSlideshowError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const sections = [
@@ -76,8 +94,14 @@ export default function VisionMissionPage() {
     <PublicShell
       title="Mission, Vision & Service Pledge"
       subtitle="Official institutional statements and guiding principles."
+      heroImages={heroImages}
     >
       <section className="mx-auto max-w-6xl px-6 pb-16">
+        {hasSlideshowError ? (
+          <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Header photos could not be loaded. The institutional statements are still available.
+          </p>
+        ) : null}
         <div className="space-y-12">
           {sections.map((section) => (
             <div

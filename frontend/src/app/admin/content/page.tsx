@@ -32,6 +32,11 @@ const contentSections = [
     ],
   },
   {
+    title: "Homepage Gallery",
+    description: "Upload and arrange the photos shown in the homepage gallery.",
+    links: [{ label: "Manage homepage photos", href: "/admin/home-gallery" }],
+  },
+  {
     title: "Trainings",
     description: "Create and publish training entries with a description, an optional image, and an external link.",
     links: [{ label: "Manage trainings", href: "/admin/trainings" }],

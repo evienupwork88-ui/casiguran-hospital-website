@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ChevronDown } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, X } from "lucide-react";
 
 export type PublicNavItem = {
   href?: string;
@@ -207,43 +207,64 @@ export function PublicDesktopNavigation({ headerOverImage = false }: { headerOve
   );
 }
 
-export function PublicMobileNavigation({ headerOverImage = false, onNavigate }: { headerOverImage?: boolean; onNavigate: () => void }) {
+export function PublicMobileNavigation({ onNavigate }: { headerOverImage?: boolean; onNavigate: () => void }) {
+  const [menuStack, setMenuStack] = useState([{ label: "Main menu", items: publicNavItems }]);
+  const currentMenu = menuStack[menuStack.length - 1];
+
   return (
-    <nav
-      aria-label="Mobile navigation"
-      className={["flex max-h-[70dvh] flex-col gap-1 overscroll-contain overflow-y-auto text-sm font-medium", headerOverImage ? "text-white" : "text-slate-700"].join(" ")}
-    >
-      {publicNavItems.map((item) =>
-        item.children ? (
-          <details key={item.label} className="border-b border-slate-100">
-            <summary className="flex cursor-pointer list-none items-center justify-between px-2 py-3 font-semibold [&::-webkit-details-marker]:hidden">
-              {item.label}
-              <ChevronDown size={16} />
-            </summary>
-            <div className="space-y-1 pb-2 pl-3">
-              {item.children.map((child) =>
-                child.children ? (
-                  <details key={child.label}>
-                    <summary className="flex cursor-pointer list-none items-center justify-between px-2 py-2 font-medium [&::-webkit-details-marker]:hidden">
-                      {child.label}
-                      <ChevronDown size={14} />
-                    </summary>
-                    <div className="space-y-1 border-l border-violet-200 pl-2">
-                      {child.children.map((nested) => (
-                        <MenuLink key={nested.label} item={nested} onClick={onNavigate} className="block px-2 py-2 text-sm" />
-                      ))}
-                    </div>
-                  </details>
-                ) : (
-                  <MenuLink key={child.label} item={child} onClick={onNavigate} className="block px-2 py-2 text-sm" />
-                ),
-              )}
-            </div>
-          </details>
+    <nav aria-label="Mobile navigation" className="flex max-h-[75dvh] flex-col text-sm font-medium text-slate-700">
+      <div className="mb-3 flex items-center justify-between gap-3">
+        {menuStack.length > 1 ? (
+          <button
+            type="button"
+            onClick={() => setMenuStack((stack) => stack.slice(0, -1))}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-semibold transition hover:bg-violet-50"
+          >
+            <ArrowLeft size={17} aria-hidden="true" />
+            Back
+          </button>
         ) : (
-          <MenuLink key={item.label} item={item} onClick={onNavigate} className="flex items-center gap-2 border-b border-slate-100 px-2 py-3" />
-        ),
-      )}
+          <p className="px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Choose a section</p>
+        )}
+        {menuStack.length > 1 ? (
+          <p className="min-w-0 flex-1 truncate text-right text-xs text-slate-500">{currentMenu.label}</p>
+        ) : null}
+        <button
+          type="button"
+          onClick={onNavigate}
+          className="inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 font-semibold transition hover:bg-violet-50"
+        >
+          <X size={17} aria-hidden="true" />
+          Close menu
+        </button>
+      </div>
+
+      <div className="space-y-2 overflow-y-auto overscroll-contain pb-2">
+        {currentMenu.items.map((item) => {
+          if (item.children) {
+            const childItems = item.children;
+            return (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => setMenuStack((stack) => [...stack, { label: item.label, items: childItems }])}
+                className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-base font-semibold transition hover:border-violet-200 hover:bg-violet-50"
+              >
+                <span>{item.label}</span>
+                <ChevronRight size={19} aria-hidden="true" className="shrink-0" />
+              </button>
+            );
+          }
+          return (
+            <MenuLink
+              key={item.label}
+              item={item}
+              onClick={onNavigate}
+              className="flex min-h-12 items-center rounded-xl border border-slate-200 bg-white px-4 py-3 text-base font-semibold text-slate-800 transition hover:border-violet-200 hover:bg-violet-50"
+            />
+          );
+        })}
+      </div>
     </nav>
   );
 }

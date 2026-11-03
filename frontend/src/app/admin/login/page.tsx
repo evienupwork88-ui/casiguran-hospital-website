@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useNotifications } from "@/components/providers/notification-provider";
-import { login } from "@/lib/api/auth";
+import { ApiRequestError, getMe, login } from "@/lib/api/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -13,8 +13,49 @@ export default function AdminLoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
   const { showSuccess, showError } = useNotifications();
+
+  useEffect(() => {
+    let active = true;
+
+    async function redirectIfAuthenticated() {
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          getMe(),
+          new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error("Session check timed out")), 10000);
+          }),
+        ]);
+        if (active) router.replace("/admin/dashboard");
+      } catch (sessionError) {
+        if (!active) return;
+        if (!(sessionError instanceof ApiRequestError) || ![401, 403].includes(sessionError.status)) {
+          setError("Unable to check your current session. You can still try signing in.");
+        }
+      } finally {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (active) setIsCheckingSession(false);
+      }
+    }
+
+    void redirectIfAuthenticated();
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        setIsCheckingSession(true);
+        void redirectIfAuthenticated();
+      }
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      active = false;
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [router]);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -24,8 +65,7 @@ export default function AdminLoginPage() {
     try {
       await login(email, password);
       showSuccess("Login successful.", "Welcome back");
-      router.push("/admin/dashboard");
-      router.refresh();
+      router.replace("/admin/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed. Please try again.";
       setError(message);
@@ -45,7 +85,11 @@ export default function AdminLoginPage() {
           <h1 className="mt-2 text-3xl font-bold text-slate-900">Sign in</h1>
         </div>
 
-        <form className="space-y-5" onSubmit={handleSubmit}>
+        {isCheckingSession ? (
+          <p className="py-8 text-center text-sm text-slate-600">Checking your session...</p>
+        ) : (
+          <>
+            <form className="space-y-5" onSubmit={handleSubmit}>
           <div>
             <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">
               Email address
@@ -103,12 +147,14 @@ export default function AdminLoginPage() {
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
-        </form>
-        <div className="mt-5 text-center">
-          <Link href="/admin/forgot-password" className="text-sm font-medium text-violet-700 hover:text-violet-800">
-            Forgot password?
-          </Link>
-        </div>
+            </form>
+            <div className="mt-5 text-center">
+              <Link href="/admin/forgot-password" className="text-sm font-medium text-violet-700 hover:text-violet-800">
+                Forgot password?
+              </Link>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

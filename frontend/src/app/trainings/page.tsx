@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { PublicShell } from "@/components/public/site-shell";
+import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicTrainings, type TrainingItem } from "@/lib/api/trainings";
 
 export default function TrainingsPage() {
   const [items, setItems] = useState<TrainingItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const [heroImages, setHeroImages] = useState<string[]>([]);
+  const [hasSlideshowError, setHasSlideshowError] = useState(false);
 
   useEffect(() => {
     async function loadTrainings() {
@@ -22,9 +25,29 @@ export default function TrainingsPage() {
     void loadTrainings();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    getPublicCitizensCharterSlideshow()
+      .then((slideshow) => {
+        if (!cancelled) setHeroImages(slideshow.coverImages.map((image) => image.url));
+      })
+      .catch(() => {
+        if (!cancelled) setHasSlideshowError(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
-    <PublicShell title="Trainings" subtitle="Training opportunities and information from Casiguran District Hospital.">
+    <PublicShell title="Trainings" subtitle="Training opportunities and information from Casiguran District Hospital." heroImages={heroImages}>
       <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+        {hasSlideshowError ? (
+          <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Header photos could not be loaded. Training information is still available.
+          </p>
+        ) : null}
         {isLoading ? (
           <div role="status" aria-busy="true" className="rounded-[26px] border border-violet-200 bg-white p-8 text-slate-600">Loading trainings...</div>
         ) : hasError ? (

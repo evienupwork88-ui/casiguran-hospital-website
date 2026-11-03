@@ -76,6 +76,7 @@ export async function logout(req: Request, res: Response) {
 
 export async function me(req: Request, res: Response) {
   // requireAuth has already run and attached req.user.
+  res.setHeader("Cache-Control", "private, no-store");
   res.status(200).json({
     user: req.user,
     csrfToken: req.cookies?.[env.csrfCookieName] ?? null,

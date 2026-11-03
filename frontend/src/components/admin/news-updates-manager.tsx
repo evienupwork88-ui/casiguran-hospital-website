@@ -548,7 +548,7 @@ export function NewsUpdatesManager() {
   return (
     <AdminShell title="News and Updates">
       <div className="mb-6">
-        <p className="text-slate-600">Manage news, announcements, and events from one place. Events remain listed on the public Events page.</p>
+        <p className="text-slate-600">Manage news, announcements, and events from one place. Published events appear in the homepage calendar.</p>
       </div>
 
       <div className="mb-8">

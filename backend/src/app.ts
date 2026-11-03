@@ -35,6 +35,7 @@ import publicNursingServiceRoutes from "./routes/public/nursing-service.routes";
 import publicHimdRoutes from "./routes/public/himd.routes";
 import publicBillingClaimsRoutes from "./routes/public/billing-claims.routes";
 import publicEmergencyDepartmentRoutes from "./routes/public/emergency-department.routes";
+import publicHomeGalleryRoutes from "./routes/public/home-gallery.routes";
 import adminNewsRoutes from "./routes/admin/news.routes";
 import adminAnnouncementsRoutes from "./routes/admin/announcements.routes";
 import adminEventsRoutes from "./routes/admin/events.routes";
@@ -64,6 +65,7 @@ import adminNursingServiceRoutes from "./routes/admin/nursing-service.routes";
 import adminHimdRoutes from "./routes/admin/himd.routes";
 import adminBillingClaimsRoutes from "./routes/admin/billing-claims.routes";
 import adminEmergencyDepartmentRoutes from "./routes/admin/emergency-department.routes";
+import adminHomeGalleryRoutes from "./routes/admin/home-gallery.routes";
 import adminCmsBulkRoutes from "./routes/admin/cms-bulk.routes";
 
 export function createApp() {
@@ -127,6 +129,7 @@ export function createApp() {
   app.use("/api/public/himd", publicHimdRoutes);
   app.use("/api/public/billing-claims", publicBillingClaimsRoutes);
   app.use("/api/public/emergency-department", publicEmergencyDepartmentRoutes);
+  app.use("/api/public/home-gallery", publicHomeGalleryRoutes);
   app.use("/api/admin/news", adminNewsRoutes);
   app.use("/api/admin/announcements", adminAnnouncementsRoutes);
   app.use("/api/admin/events", adminEventsRoutes);
@@ -156,6 +159,7 @@ export function createApp() {
   app.use("/api/admin/himd", adminHimdRoutes);
   app.use("/api/admin/billing-claims", adminBillingClaimsRoutes);
   app.use("/api/admin/emergency-department", adminEmergencyDepartmentRoutes);
+  app.use("/api/admin/home-gallery", adminHomeGalleryRoutes);
   app.use("/api/admin/cms-bulk", adminCmsBulkRoutes);
 
   // Must be registered LAST — Express only treats a 4-arg middleware as

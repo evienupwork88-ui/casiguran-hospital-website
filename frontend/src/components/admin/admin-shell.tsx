@@ -12,6 +12,7 @@ import {
   Clock3,
   FileText,
   HeartPulse,
+  Images,
   LayoutDashboard,
   LogOut,
   Mail,
@@ -36,8 +37,8 @@ const navigation = [
   {
     section: "Content",
     items: [
-      { href: "/admin/content", label: "Public Site Content", icon: FileText },
       { href: "/admin/news", label: "News and Updates", icon: Newspaper },
+      { href: "/admin/home-gallery", label: "Homepage Gallery", icon: Images },
       { href: "/admin/trainings", label: "Trainings", icon: FileText },
       { href: "/admin/contact-messages", label: "Contact messages", icon: Mail },
       { href: "/admin/faqs", label: "FAQs", icon: BookOpen },
