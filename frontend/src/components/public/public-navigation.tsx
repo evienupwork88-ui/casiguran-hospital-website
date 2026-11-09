@@ -47,7 +47,6 @@ export const publicNavItems: PublicNavItem[] = [
         label: "Clinical Departments",
         children: [
           { href: "/dental", label: "Dental Department" },
-          { href: "/family-community-medicine", label: "Family and Community Medicine" },
           { href: "/general-medicine", label: "General Medicine" },
           { href: "/obstetrics-and-gynecology", label: "Obstetrics and Gynecology" },
           { href: "/pediatrics", label: "Pediatrics" },

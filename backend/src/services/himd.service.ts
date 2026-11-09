@@ -12,6 +12,7 @@ type HimdSchedule = { clinic: string; days: string; hours: string; notes: string
 export type HimdContentRecord = {
   section: HimdSection;
   title: string;
+  officialEmail: string;
   organizationalChartImageUrl: string | null;
   generalInformation: string;
   highlights: HimdHighlight[];
@@ -30,7 +31,7 @@ const imageFormats = {
   webp: { mime: "image/webp", signature: (buffer: Buffer) => buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP" },
 } as const;
 
-const columns = "section, title, organizational_chart_image_path, general_information, highlights, clinic_schedule, organizational_structure_description, updated_at, updated_by";
+const columns = "section, title, official_email, organizational_chart_image_path, general_information, highlights, clinic_schedule, organizational_structure_description, updated_at, updated_by";
 
 async function mapRow(row: any): Promise<HimdContentRecord> {
   let organizationalChartImageUrl: string | null = null;
@@ -42,6 +43,7 @@ async function mapRow(row: any): Promise<HimdContentRecord> {
   return {
     section: row.section,
     title: row.title,
+    officialEmail: row.official_email ?? "",
     organizationalChartImageUrl,
     generalInformation: row.general_information,
     highlights: row.highlights ?? [],
@@ -87,6 +89,7 @@ export async function updateHimdContent(section: HimdSection, input: UpdateHimdC
     .from("himd_content")
     .update({
       title: input.title,
+      official_email: section === "him-service" ? input.officialEmail?.trim() || null : null,
       general_information: input.generalInformation,
       highlights: input.highlights,
       clinic_schedule: input.clinicSchedule,

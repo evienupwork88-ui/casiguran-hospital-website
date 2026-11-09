@@ -18,6 +18,7 @@ export type HimdSection = z.infer<typeof himdSectionSchema>;
 
 export const updateHimdContentSchema = z.object({
   title: z.string().trim().min(1, "Page title is required").max(200),
+  officialEmail: z.string().trim().max(254).email("Enter a valid official email address").or(z.literal("")).optional(),
   generalInformation: z.string().trim().max(10000),
   highlights: z.array(highlightSchema).max(30),
   clinicSchedule: z.array(scheduleSchema).max(100),

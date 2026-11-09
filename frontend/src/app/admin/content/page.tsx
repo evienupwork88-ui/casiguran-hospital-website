@@ -12,7 +12,7 @@ const contentSections = [
   },
   {
     title: "Patient Care",
-    description: "Manage dedicated Out-Patient, Emergency Department, Radiology, General Medicine, Obstetrics and Gynecology, Pediatrics, Dental, Family and Community Medicine, Medical Social Service, Nutrition and Dietetics, Pharmacy, Pathology and Laboratories, Nursing Service, HIMD, and Billing and Claims pages.",
+    description: "Manage dedicated Out-Patient, Emergency Department, Radiology, General Medicine, Obstetrics and Gynecology, Pediatrics, Dental, Medical Social Service, Nutrition and Dietetics, Pharmacy, Pathology and Laboratories, Nursing Service, HIMD, and Billing and Claims pages.",
     links: [
       { label: "Out-Patient Department page", href: "/admin/opd" },
       { label: "Emergency Department page", href: "/admin/emergency-department" },
@@ -21,7 +21,6 @@ const contentSections = [
       { label: "Obstetrics and Gynecology page", href: "/admin/obstetrics-and-gynecology" },
       { label: "Pediatrics page", href: "/admin/pediatrics" },
       { label: "Dental Department page", href: "/admin/dental" },
-      { label: "Family and Community Medicine page", href: "/admin/family-community-medicine" },
       { label: "Medical Social Service Department page", href: "/admin/medical-social-service" },
       { label: "Nutrition and Dietetics Department page", href: "/admin/nutrition-and-dietetics" },
       { label: "Pharmacy Department page", href: "/admin/pharmacy" },

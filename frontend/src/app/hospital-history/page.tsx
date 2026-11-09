@@ -8,7 +8,6 @@ export default function HospitalHistoryPage() {
   const [historyPage, setHistoryPage] = useState<PageItem | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const [isStoryExpanded, setIsStoryExpanded] = useState(false);
 
   useEffect(() => {
     async function loadHistoryData() {
@@ -45,34 +44,19 @@ export default function HospitalHistoryPage() {
             ) : hasError ? (
               <p role="alert" className="text-base leading-8 text-red-700">Unable to load the hospital history right now. Please try again later.</p>
             ) : paragraphs.length > 0 ? (
-              <>
-                <div
-                  tabIndex={0}
-                  aria-label="Hospital history story"
-                  className={`relative ${
-                    isStoryExpanded ? "max-h-none" : "max-h-72 overflow-hidden"
-                  } md:max-h-none md:overflow-visible`}
-                >
-                  <div className="space-y-6">
-                    {paragraphs.map((paragraph, index) => (
-                      <p key={index} className="text-base leading-8 text-slate-700 sm:text-[1.05rem]">
-                        {paragraph}
-                      </p>
-                    ))}
-                  </div>
-                  {!isStoryExpanded && (
-                    <div aria-hidden="true" className="absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-white to-transparent md:hidden" />
-                  )}
+              <div
+                tabIndex={0}
+                aria-label="Hospital history story"
+                className="max-h-[65vh] overflow-y-auto overscroll-contain pr-3"
+              >
+                <div className="space-y-6">
+                  {paragraphs.map((paragraph, index) => (
+                    <p key={index} className="text-base leading-8 text-slate-700 sm:text-[1.05rem]">
+                      {paragraph}
+                    </p>
+                  ))}
                 </div>
-                <button
-                  type="button"
-                  aria-expanded={isStoryExpanded}
-                  onClick={() => setIsStoryExpanded((expanded) => !expanded)}
-                  className="mt-4 font-semibold text-violet-700 hover:text-violet-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-violet-700 md:hidden"
-                >
-                  {isStoryExpanded ? "Read less" : "Read more"}
-                </button>
-              </>
+              </div>
             ) : (
               <p className="text-base leading-8 text-slate-600">
                 Official hospital history will appear here once the approved content is published.

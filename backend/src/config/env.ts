@@ -41,6 +41,7 @@ export const env = {
 
   supabaseUrl: requireEnv("SUPABASE_URL"),
   supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+  googleCalendarApiKey: envString("GOOGLE_CALENDAR_API_KEY", ""),
   storageBucketName: envString("STORAGE_BUCKET_NAME", "cdh-documents"),
   approvalStagingBucketName: envString("APPROVAL_STAGING_BUCKET_NAME", "cdh-approval-staging"),
   maxUploadImageBytes: envNumber("MAX_UPLOAD_IMAGE_MB", 5) * 1024 * 1024,

@@ -12,6 +12,7 @@ export const himdSectionLabels: Record<HimdSection, string> = {
 export type HimdContent = {
   section: HimdSection;
   title: string;
+  officialEmail: string;
   organizationalChartImageUrl: string | null;
   generalInformation: string;
   highlights: { title: string; description: string }[];
@@ -23,7 +24,7 @@ export type HimdContent = {
 
 export type HimdSlideshow = { coverImages: { url: string }[] };
 
-type HimdContentInput = Pick<HimdContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
+type HimdContentInput = Pick<HimdContent, "title" | "officialEmail" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 

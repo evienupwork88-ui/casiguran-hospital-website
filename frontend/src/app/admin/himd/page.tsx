@@ -20,7 +20,7 @@ import {
   type HimdSlideshow,
 } from "@/lib/api/himd";
 
-type HimdForm = Pick<HimdContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
+type HimdForm = Pick<HimdContent, "title" | "officialEmail" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
 type HimdForms = Record<HimdSection, HimdForm>;
 type HimdSections = Record<HimdSection, HimdContent>;
 
@@ -65,6 +65,7 @@ export default function AdminHimdPage() {
           nextSections[item.section] = item;
           nextForms[item.section] = {
             title: item.title,
+            officialEmail: item.officialEmail,
             generalInformation: item.generalInformation,
             highlights: item.highlights,
             clinicSchedule: item.clinicSchedule,
@@ -105,6 +106,7 @@ export default function AdminHimdPage() {
       setSectionContent(saved);
       setForms((current) => ({ ...current, [activeSection]: {
         title: saved.title,
+        officialEmail: saved.officialEmail,
         generalInformation: saved.generalInformation,
         highlights: saved.highlights,
         clinicSchedule: saved.clinicSchedule,
@@ -231,6 +233,12 @@ export default function AdminHimdPage() {
             <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
               <h2 className="text-lg font-semibold text-slate-900">{himdSectionLabels[activeSection]} information</h2>
               <label className={`${labelClassName} mt-5`}>Page title<input value={form.title} onChange={(event) => updateForm({ title: event.target.value })} maxLength={200} required className={inputClassName} /></label>
+              {activeSection === "him-service" ? (
+                <label className={`${labelClassName} mt-5`}>
+                  Official email
+                  <input type="email" value={form.officialEmail} onChange={(event) => updateForm({ officialEmail: event.target.value })} maxLength={254} placeholder="him.service@hospital.gov.ph" className={inputClassName} />
+                </label>
+              ) : null}
               <label className={`${labelClassName} mt-5`}>General information<textarea value={form.generalInformation} onChange={(event) => updateForm({ generalInformation: event.target.value })} maxLength={10000} rows={6} className={inputClassName} /></label>
               <label className={`${labelClassName} mt-5`}>Organizational structure description<textarea value={form.organizationalStructureDescription} onChange={(event) => updateForm({ organizationalStructureDescription: event.target.value })} maxLength={3000} rows={3} className={inputClassName} /></label>
             </section>

@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronLeft, ChevronRight, Clock3, MapPin } from "lucide-react";
 import type { EventItem } from "@/lib/api/events";
+import { getPhilippinePublicHolidays, type PhilippinePublicHoliday } from "@/lib/api/holidays";
 
 const timeZone = "Asia/Manila";
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const weekdaysCompact = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+
+type CalendarItem = Pick<EventItem, "id" | "title" | "description" | "location" | "startAt" | "endAt" | "excerpt" | "externalUrl"> & {
+  isHoliday?: boolean;
+};
 
 function getDateParts(value: string): { year: number; month: number; day: number } | null {
   const date = new Date(value);
@@ -68,6 +73,9 @@ export function HomeEventsCalendar({
     const today = getDateParts(new Date().toISOString());
     return today ? dateKey(today.year, today.month, today.day) : dateKey(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate());
   });
+  const [publicHolidays, setPublicHolidays] = useState<PhilippinePublicHoliday[]>([]);
+  const [holidaysError, setHolidaysError] = useState(false);
+  const [holidayRetry, setHolidayRetry] = useState(0);
 
   const monthLabel = new Intl.DateTimeFormat("en-PH", {
     month: "long",
@@ -82,11 +90,51 @@ export function HomeEventsCalendar({
     );
   }, [visibleMonth]);
 
+  const calendarYearKey = useMemo(
+    () => [...new Set(days.map((day) => day.getFullYear()))].join(","),
+    [days],
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    const calendarYears = calendarYearKey.split(",").map(Number);
+
+    setHolidaysError(false);
+    void Promise.allSettled(calendarYears.map((year) => getPhilippinePublicHolidays(year, controller.signal)))
+      .then((results) => {
+        if (cancelled) return;
+        const successfulResults = results.filter((result) => result.status === "fulfilled");
+        setPublicHolidays(successfulResults.flatMap((result) => result.value));
+        setHolidaysError(successfulResults.length !== results.length);
+      });
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [calendarYearKey, holidayRetry]);
+
+  const calendarItems = useMemo<CalendarItem[]>(() => [
+    ...events,
+    ...publicHolidays.map((holiday) => ({
+      id: `ph-holiday-${holiday.date}-${holiday.name}`,
+      title: holiday.name,
+      description: "Philippine public holiday listed in Google Calendar.",
+      location: null,
+      startAt: `${holiday.date}T00:00:00+08:00`,
+      endAt: null,
+      excerpt: null,
+      externalUrl: null,
+      isHoliday: true,
+    })),
+  ], [events, publicHolidays]);
+
   const eventsByDate = useMemo(() => {
-    const byDate = new Map<string, EventItem[]>();
+    const byDate = new Map<string, CalendarItem[]>();
     for (const day of days) {
       const key = dateKey(day.getFullYear(), day.getMonth() + 1, day.getDate());
-      const dayEvents = events.filter((event) => {
+      const dayEvents = calendarItems.filter((event) => {
         const start = getDateParts(event.startAt);
         const end = getDateParts(event.endAt || event.startAt);
         if (!start || !end) return false;
@@ -97,7 +145,7 @@ export function HomeEventsCalendar({
       if (dayEvents.length) byDate.set(key, dayEvents);
     }
     return byDate;
-  }, [days, events]);
+  }, [days, calendarItems]);
 
   const selectedEvents = eventsByDate.get(selectedDate) ?? [];
 
@@ -142,7 +190,7 @@ export function HomeEventsCalendar({
           </div>
           <div>
             <h3 className="font-semibold text-slate-900">{monthLabel}</h3>
-            <p className="text-xs text-slate-500">Hospital events · Philippines time</p>
+            <p className="text-xs text-slate-500">Hospital events and PH public holidays · Philippines time</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -157,6 +205,13 @@ export function HomeEventsCalendar({
           </button>
         </div>
       </div>
+
+      {holidaysError ? (
+        <div role="status" className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 sm:px-6">
+          <span>Some public holidays could not be loaded from Google Calendar.</span>
+          <button type="button" onClick={() => setHolidayRetry((attempt) => attempt + 1)} className="font-semibold underline underline-offset-2">Retry holidays</button>
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-50/80">
         {weekdays.map((weekday, index) => (
@@ -194,7 +249,7 @@ export function HomeEventsCalendar({
                     type="button"
                     onClick={() => setSelectedDate(key)}
                     title={event.title}
-                    className="block w-full truncate rounded-md border-l-2 border-violet-500 bg-violet-50 px-1.5 py-1 text-left text-[0.6rem] font-medium leading-tight text-violet-900 hover:bg-violet-100 sm:text-xs"
+                    className={`block w-full truncate rounded-md border-l-2 px-1.5 py-1 text-left text-[0.6rem] font-medium leading-tight sm:text-xs ${event.isHoliday ? "border-amber-500 bg-amber-50 text-amber-900 hover:bg-amber-100" : "border-violet-500 bg-violet-50 text-violet-900 hover:bg-violet-100"}`}
                   >
                     {event.title}
                   </button>
@@ -206,7 +261,7 @@ export function HomeEventsCalendar({
                 ) : null}
                 {dayEvents.length > 0 ? (
                   <span className="flex justify-center gap-1 sm:hidden" aria-hidden="true">
-                    {dayEvents.slice(0, 3).map((event) => <span key={event.id} className="h-1 w-1 rounded-full bg-violet-500" />)}
+                    {dayEvents.slice(0, 3).map((event) => <span key={event.id} className={`h-1 w-1 rounded-full ${event.isHoliday ? "bg-amber-500" : "bg-violet-500"}`} />)}
                   </span>
                 ) : null}
               </div>
@@ -225,6 +280,7 @@ export function HomeEventsCalendar({
               return (
                 <li key={event.id} className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
                   <h4 className="font-semibold text-slate-900">{event.title}</h4>
+                  {event.isHoliday ? <p className="mt-1 text-xs font-medium text-amber-700">Philippine public holiday · Google Calendar</p> : null}
                   {event.excerpt || event.description ? (
                     <p className="mt-1 whitespace-pre-line text-sm leading-6 text-slate-600">{event.excerpt || event.description}</p>
                   ) : null}

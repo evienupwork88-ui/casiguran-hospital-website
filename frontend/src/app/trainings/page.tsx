@@ -66,8 +66,10 @@ export default function TrainingsPage() {
               const content = (
                 <>
                   {item.imageUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={item.imageUrl} alt="" className="aspect-[16/10] w-full object-cover" />
+                    <div className="flex aspect-[16/10] w-full items-center justify-center overflow-hidden bg-slate-50">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.imageUrl} alt="" className="h-full w-full object-contain" />
+                    </div>
                   ) : (
                     <div aria-hidden="true" className="flex aspect-[16/10] items-center justify-center bg-violet-50 text-sm font-semibold uppercase tracking-[0.18em] text-violet-500">Training</div>
                   )}

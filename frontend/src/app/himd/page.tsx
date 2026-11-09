@@ -42,7 +42,7 @@ export default function HimdPage() {
   const content = sections[activeSection];
 
   return (
-    <PublicShell title="Health Information Management Department" heroImages={slideshow?.coverImages.map((image) => image.url)}>
+    <PublicShell title="Health Information Management Department" heroImages={slideshow?.coverImages.map((image) => image.url)} singleLineHeroTitle>
       <section className="mx-auto max-w-6xl px-5 py-8 sm:px-8 md:py-12">
         <div className="mb-8 rounded-3xl border border-violet-100 bg-gradient-to-br from-violet-50 via-white to-indigo-50 p-4 shadow-[0_18px_50px_rgba(47,32,104,0.07)] sm:p-5">
           <div className="mb-4 flex flex-wrap items-end justify-between gap-2 px-1">
@@ -94,6 +94,11 @@ export default function HimdPage() {
               <p className="text-sm font-semibold uppercase tracking-[0.16em] text-violet-700">{himdSectionLabels[activeSection]}</p>
               <h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em] text-slate-900">{content.title}</h2>
             </header>
+            {activeSection === "him-service" && content.officialEmail ? (
+              <p className="text-sm text-slate-600">
+                Official email: <a href={`mailto:${content.officialEmail}`} className="font-semibold text-violet-700 hover:text-violet-900">{content.officialEmail}</a>
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-3">
               {content.generalInformation || content.highlights.length ? (
                 <Link href="#himd-general-information" className="rounded-xl bg-violet-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-800">Explore services</Link>

@@ -16,6 +16,7 @@ type PublicShellProps = {
   children: React.ReactNode;
   headerOverImage?: boolean;
   heroImages?: string[];
+  singleLineHeroTitle?: boolean;
 };
 
 const footerQuickLinks = [
@@ -30,7 +31,7 @@ const footerQuickLinks = [
 
 const headerLogoClass = "relative h-10 w-10 shrink-0 sm:h-16 sm:w-16 lg:h-24 lg:w-24";
 
-export function PublicShell({ title, subtitle, children, headerOverImage = false, heroImages = [] }: PublicShellProps) {
+export function PublicShell({ title, subtitle, children, headerOverImage = false, heroImages = [], singleLineHeroTitle = false }: PublicShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeHeroImageIndex, setActiveHeroImageIndex] = useState(0);
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
@@ -207,7 +208,7 @@ export function PublicShell({ title, subtitle, children, headerOverImage = false
           <p className={`text-[0.7rem] font-bold uppercase tracking-[0.22em] ${heroImageCount ? "inline-flex border-l-2 border-violet-200/90 bg-[#21164f]/75 px-3.5 py-1.5 text-white/95" : "text-violet-700"}`}>
             Hospital information
           </p>
-          <h1 className={`mt-3 max-w-4xl break-words text-4xl font-semibold leading-[1.05] sm:text-5xl ${heroImageCount ? "image-overlay-heading text-4xl font-normal leading-tight sm:text-6xl" : "text-slate-950"}`}>
+          <h1 className={`mt-3 ${singleLineHeroTitle ? "max-w-none whitespace-nowrap text-[clamp(1rem,3.5vw,3rem)]" : "max-w-4xl break-words text-4xl sm:text-5xl"} font-semibold leading-[1.05] ${heroImageCount ? `image-overlay-heading font-normal ${singleLineHeroTitle ? "leading-tight" : "text-4xl leading-tight sm:text-6xl"}` : "text-slate-950"}`}>
             {title}
           </h1>
           {subtitle ? (

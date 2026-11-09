@@ -57,7 +57,7 @@ Migration 0025 adds a separate Radiology organizational chart image and descript
 Migration 0026 creates the Emergency Department page, image gallery, content editor, schedule, and separate organizational chart.
 Migration 0027 converts the Hospital History cover photo into a multi-image header slideshow.
 Migration 0028 creates the Dental Department page, gallery, service schedule, and organizational chart editor.
-Migration 0029 creates the Family and Community Medicine page, gallery, service schedule, and organizational chart editor.
+Migration 0029 originally created the Family and Community Medicine page, gallery, service schedule, and organizational chart editor. Migration 0051 removes this feature and its database table.
 Migration 0030 creates the Medical Social Service Department page, gallery, service schedule, and organizational chart editor.
 Migration 0031 creates the Nutrition and Dietetics Department page, gallery, service schedule, and organizational chart editor.
 Migration 0032 creates the Pharmacy Department page, gallery, service schedule, and organizational chart editor.
@@ -79,6 +79,7 @@ Migration 0047 adds manually selected public display dates to news and announcem
 Migration 0048 creates the editable homepage photo gallery. Apply it before uploading homepage gallery photos.
 Migration 0049 creates the Key Officials header slideshow. Apply it before uploading Key Officials header photos.
 Migration 0050 creates the Citizen's Charter header slideshow. Apply it before uploading Citizen's Charter header photos.
+Migration 0052 adds an official email field for the HIM Service section.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
 Re-running the file will error on `CREATE TABLE` (tables already
@@ -120,8 +121,6 @@ For the separate Radiology organizational chart, run
 [`migrations/0025_radiology_organizational_chart.sql`](migrations/0025_radiology_organizational_chart.sql).
 For the Dental Department page and CMS, run
 [`migrations/0028_dental_content.sql`](migrations/0028_dental_content.sql).
-For the Family and Community Medicine page and CMS, run
-[`migrations/0029_family_community_medicine_content.sql`](migrations/0029_family_community_medicine_content.sql).
 For the Medical Social Service Department page and CMS, run
 [`migrations/0030_medical_social_service_content.sql`](migrations/0030_medical_social_service_content.sql).
 For the Nutrition and Dietetics Department page and CMS, run
@@ -165,6 +164,10 @@ For the Key Officials header slideshow, run
 [`migrations/0049_key_officials_slideshow.sql`](migrations/0049_key_officials_slideshow.sql).
 For the Citizen's Charter header slideshow, run
 [`migrations/0050_citizens_charter_slideshow.sql`](migrations/0050_citizens_charter_slideshow.sql).
+For the HIM Service official email field, run
+[`migrations/0052_him_service_official_email.sql`](migrations/0052_him_service_official_email.sql).
+To remove the discontinued Family and Community Medicine feature and its database content, run
+[`migrations/0051_remove_family_community_medicine.sql`](migrations/0051_remove_family_community_medicine.sql).
 For the Emergency Department CMS and organizational chart, run
 [`migrations/0026_emergency_department_content.sql`](migrations/0026_emergency_department_content.sql).
 For the Hospital History image gallery and header slideshow, run

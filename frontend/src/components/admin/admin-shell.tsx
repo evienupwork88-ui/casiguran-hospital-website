@@ -53,7 +53,6 @@ const navigation = [
           { href: "/admin/obstetrics-and-gynecology", label: "Obstetrics and Gynecology", icon: HeartPulse },
           { href: "/admin/pediatrics", label: "Pediatrics", icon: HeartPulse },
           { href: "/admin/dental", label: "Dental page", icon: HeartPulse },
-          { href: "/admin/family-community-medicine", label: "Family & Community Medicine", icon: HeartPulse },
           { href: "/admin/medical-social-service", label: "Medical Social Service", icon: HeartPulse },
           { href: "/admin/nutrition-and-dietetics", label: "Nutrition and Dietetics", icon: HeartPulse },
           { href: "/admin/pharmacy", label: "Pharmacy", icon: HeartPulse },
@@ -116,7 +115,7 @@ export function AdminShell({
   const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [patientCareOpen, setPatientCareOpen] = useState(() =>
-    pathname.startsWith("/admin/opd") || pathname.startsWith("/admin/radiology") || pathname.startsWith("/admin/general-medicine") || pathname.startsWith("/admin/obstetrics-and-gynecology") || pathname.startsWith("/admin/pediatrics") || pathname.startsWith("/admin/emergency-department") || pathname.startsWith("/admin/dental") || pathname.startsWith("/admin/family-community-medicine") || pathname.startsWith("/admin/medical-social-service") || pathname.startsWith("/admin/nutrition-and-dietetics") || pathname.startsWith("/admin/pharmacy") || pathname.startsWith("/admin/pathology-laboratories") || pathname.startsWith("/admin/nursing-service") || pathname.startsWith("/admin/himd") || pathname.startsWith("/admin/billing-claims"),
+    pathname.startsWith("/admin/opd") || pathname.startsWith("/admin/radiology") || pathname.startsWith("/admin/general-medicine") || pathname.startsWith("/admin/obstetrics-and-gynecology") || pathname.startsWith("/admin/pediatrics") || pathname.startsWith("/admin/emergency-department") || pathname.startsWith("/admin/dental") || pathname.startsWith("/admin/medical-social-service") || pathname.startsWith("/admin/nutrition-and-dietetics") || pathname.startsWith("/admin/pharmacy") || pathname.startsWith("/admin/pathology-laboratories") || pathname.startsWith("/admin/nursing-service") || pathname.startsWith("/admin/himd") || pathname.startsWith("/admin/billing-claims"),
   );
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLElement>(null);

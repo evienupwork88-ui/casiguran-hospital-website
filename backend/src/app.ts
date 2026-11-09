@@ -12,6 +12,7 @@ import authRoutes from "./routes/auth.routes";
 import publicNewsRoutes from "./routes/public/news.routes";
 import publicAnnouncementsRoutes from "./routes/public/announcements.routes";
 import publicEventsRoutes from "./routes/public/events.routes";
+import publicHolidaysRoutes from "./routes/public/holidays.routes";
 import publicPagesRoutes from "./routes/public/pages.routes";
 import publicDocumentsRoutes from "./routes/public/documents.routes";
 import publicKeyOfficialsRoutes from "./routes/public/key-officials.routes";
@@ -26,7 +27,6 @@ import publicGeneralMedicineRoutes from "./routes/public/general-medicine.routes
 import publicObstetricsAndGynecologyRoutes from "./routes/public/obstetrics-and-gynecology.routes";
 import publicPediatricsRoutes from "./routes/public/pediatrics.routes";
 import publicDentalRoutes from "./routes/public/dental.routes";
-import publicFamilyCommunityMedicineRoutes from "./routes/public/family-community-medicine.routes";
 import publicMedicalSocialServiceRoutes from "./routes/public/medical-social-service.routes";
 import publicNutritionAndDieteticsRoutes from "./routes/public/nutrition-and-dietetics.routes";
 import publicPharmacyRoutes from "./routes/public/pharmacy.routes";
@@ -56,7 +56,6 @@ import adminGeneralMedicineRoutes from "./routes/admin/general-medicine.routes";
 import adminObstetricsAndGynecologyRoutes from "./routes/admin/obstetrics-and-gynecology.routes";
 import adminPediatricsRoutes from "./routes/admin/pediatrics.routes";
 import adminDentalRoutes from "./routes/admin/dental.routes";
-import adminFamilyCommunityMedicineRoutes from "./routes/admin/family-community-medicine.routes";
 import adminMedicalSocialServiceRoutes from "./routes/admin/medical-social-service.routes";
 import adminNutritionAndDieteticsRoutes from "./routes/admin/nutrition-and-dietetics.routes";
 import adminPharmacyRoutes from "./routes/admin/pharmacy.routes";
@@ -105,6 +104,7 @@ export function createApp() {
   app.use("/api/public/news", publicNewsRoutes);
   app.use("/api/public/announcements", publicAnnouncementsRoutes);
   app.use("/api/public/events", publicEventsRoutes);
+  app.use("/api/public/holidays", publicHolidaysRoutes);
   app.use("/api/public/pages", publicPagesRoutes);
   app.use("/api/public/documents", publicDocumentsRoutes);
   app.use("/api/public/key-officials", publicKeyOfficialsRoutes);
@@ -120,7 +120,6 @@ export function createApp() {
   app.use("/api/public/obstetrics-and-gynecology", publicObstetricsAndGynecologyRoutes);
   app.use("/api/public/pediatrics", publicPediatricsRoutes);
   app.use("/api/public/dental", publicDentalRoutes);
-  app.use("/api/public/family-community-medicine", publicFamilyCommunityMedicineRoutes);
   app.use("/api/public/medical-social-service", publicMedicalSocialServiceRoutes);
   app.use("/api/public/nutrition-and-dietetics", publicNutritionAndDieteticsRoutes);
   app.use("/api/public/pharmacy", publicPharmacyRoutes);
@@ -150,7 +149,6 @@ export function createApp() {
   app.use("/api/admin/obstetrics-and-gynecology", adminObstetricsAndGynecologyRoutes);
   app.use("/api/admin/pediatrics", adminPediatricsRoutes);
   app.use("/api/admin/dental", adminDentalRoutes);
-  app.use("/api/admin/family-community-medicine", adminFamilyCommunityMedicineRoutes);
   app.use("/api/admin/medical-social-service", adminMedicalSocialServiceRoutes);
   app.use("/api/admin/nutrition-and-dietetics", adminNutritionAndDieteticsRoutes);
   app.use("/api/admin/pharmacy", adminPharmacyRoutes);
