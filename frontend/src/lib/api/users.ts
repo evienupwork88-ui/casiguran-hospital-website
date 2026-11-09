@@ -68,6 +68,7 @@ export async function createUser(input: {
 }
 
 export async function updateUser(id: string, input: {
+  mfaCode: string;
   email?: string;
   firstName?: string;
   middleName?: string;

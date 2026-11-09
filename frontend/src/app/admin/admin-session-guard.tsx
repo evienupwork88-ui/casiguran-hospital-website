@@ -3,12 +3,14 @@
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { getMe } from "@/lib/api/auth";
+import { isAdminOnlyPath } from "@/lib/admin-permissions";
 
 export function AdminSessionGuard({ children, adminPath }: { children: React.ReactNode; adminPath: string }) {
   const pathname = usePathname();
   const router = useRouter();
   const [clientPathname, setClientPathname] = useState<string | null>(null);
   const isPublicAuthRoute = clientPathname === `${adminPath}/login` || clientPathname === `${adminPath}/forgot-password`;
+  const isMfaRoute = clientPathname === `${adminPath}/mfa`;
   const [isReady, setIsReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);
 
@@ -38,9 +40,23 @@ export function AdminSessionGuard({ children, adminPath }: { children: React.Rea
           setTimeout(() => reject(new Error("Session check timed out")), timeoutMs);
         });
 
-        await Promise.race([sessionRequest, timeoutPromise]);
+        const user = await Promise.race([sessionRequest, timeoutPromise]);
 
         if (active) {
+          const needsMfa = user.requiresMfaSetup || user.requiresMfaVerification;
+          if (needsMfa && !isMfaRoute) {
+            router.replace(`${adminPath}/mfa`);
+            return;
+          }
+          if (user.role === "editor" && clientPathname && isAdminOnlyPath(clientPathname)) {
+            router.replace(`${adminPath}/dashboard`);
+            return;
+          }
+          if (!needsMfa && !isMfaRoute) {
+            setIsReady(true);
+            setSessionError(null);
+            return;
+          }
           setIsReady(true);
           setSessionError(null);
         }
@@ -67,7 +83,7 @@ export function AdminSessionGuard({ children, adminPath }: { children: React.Rea
     return () => {
       active = false;
     };
-  }, [clientPathname, isPublicAuthRoute, router]);
+  }, [clientPathname, isMfaRoute, isPublicAuthRoute, adminPath, router]);
 
   if (!isPublicAuthRoute && !isReady) {
     return (

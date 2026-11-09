@@ -1,7 +1,9 @@
 import type { Request, Response } from "express";
 import { AppError } from "../utils/AppError";
 import { createStaffUser, deactivateStaffUser, listStaffUsers, updateStaffUser } from "../services/users.service";
-import type { CreateUserInput, UpdateUserInput } from "../validation/users.schema";
+import { verifyMfaStepUp } from "../services/mfa.service";
+import { clearLoginFailures, getLoginLock, recordLoginFailure } from "../services/login-throttle.service";
+import type { CreateUserInput, UpdateUserRequestInput } from "../validation/users.schema";
 
 export async function listAdminUsers(_req: Request, res: Response) {
   const users = await listStaffUsers();
@@ -25,9 +27,9 @@ export async function createAdminUser(req: Request, res: Response) {
 
 export async function updateAdminUser(req: Request, res: Response) {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const input = req.body as UpdateUserInput;
+  const { mfaCode, ...input } = req.body as UpdateUserRequestInput;
 
-  if (!req.user) {
+  if (!req.user || !req.session) {
     throw new AppError(401, "Not authenticated", "UNAUTHENTICATED");
   }
 
@@ -35,6 +37,27 @@ export async function updateAdminUser(req: Request, res: Response) {
     throw new AppError(403, "Only admins can update staff accounts", "FORBIDDEN");
   }
 
+  const ipAddress = req.ip ?? "unknown";
+  const lockedUntil = await getLoginLock(req.user.email, ipAddress);
+  if (lockedUntil && lockedUntil.getTime() > Date.now()) {
+    res.setHeader("Retry-After", String(Math.ceil((lockedUntil.getTime() - Date.now()) / 1000)));
+    throw new AppError(429, "Too many verification attempts. Try again later.", "LOGIN_COOLDOWN");
+  }
+
+  try {
+    await verifyMfaStepUp(req.user.id, req.session.id, mfaCode);
+  } catch (error) {
+    if (error instanceof AppError && error.code === "INVALID_MFA_CODE") {
+      const nextLock = await recordLoginFailure(req.user.email, ipAddress);
+      if (nextLock && nextLock.getTime() > Date.now()) {
+        res.setHeader("Retry-After", String(Math.ceil((nextLock.getTime() - Date.now()) / 1000)));
+        throw new AppError(429, "Too many verification attempts. Try again later.", "LOGIN_COOLDOWN");
+      }
+    }
+    throw error;
+  }
+
+  await clearLoginFailures(req.user.email, ipAddress);
   const user = await updateStaffUser(id, input);
   res.status(200).json({ item: user });
 }

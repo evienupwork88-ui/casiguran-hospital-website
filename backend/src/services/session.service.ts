@@ -14,6 +14,9 @@ export interface SessionRecord {
   id: string;
   adminUserId: string;
   expiresAt: string;
+  mfaVerifiedAt: string | null;
+  mfaSetupSecretEncrypted: string | null;
+  mfaSetupExpiresAt: string | null;
 }
 
 function hashToken(rawToken: string): string {
@@ -29,7 +32,7 @@ export async function createSession(
 ): Promise<{ rawToken: string; expiresAt: Date }> {
   const rawToken = crypto.randomBytes(32).toString("hex");
   const tokenHash = hashToken(rawToken);
-  const expiresAt = new Date(Date.now() + env.sessionTtlHours * 60 * 60 * 1000);
+  const expiresAt = new Date(Date.now() + env.preAuthSessionTtlMinutes * 60 * 1000);
 
   const { error } = await supabase.from("sessions").insert({
     token_hash: tokenHash,
@@ -56,7 +59,7 @@ export async function findValidSession(rawToken: string): Promise<SessionRecord 
 
   const { data, error } = await supabase
     .from("sessions")
-    .select("id, admin_user_id, expires_at, revoked_at")
+    .select("id, admin_user_id, expires_at, revoked_at, mfa_verified_at, mfa_setup_secret_encrypted, mfa_setup_expires_at")
     .eq("token_hash", tokenHash)
     .is("revoked_at", null)
     .maybeSingle();
@@ -71,6 +74,9 @@ export async function findValidSession(rawToken: string): Promise<SessionRecord 
     id: data.id,
     adminUserId: data.admin_user_id,
     expiresAt: data.expires_at,
+    mfaVerifiedAt: data.mfa_verified_at,
+    mfaSetupSecretEncrypted: data.mfa_setup_secret_encrypted,
+    mfaSetupExpiresAt: data.mfa_setup_expires_at,
   };
 }
 

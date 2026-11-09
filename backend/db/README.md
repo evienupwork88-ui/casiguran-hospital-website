@@ -80,6 +80,10 @@ Migration 0048 creates the editable homepage photo gallery. Apply it before uplo
 Migration 0049 creates the Key Officials header slideshow. Apply it before uploading Key Officials header photos.
 Migration 0050 creates the Citizen's Charter header slideshow. Apply it before uploading Citizen's Charter header photos.
 Migration 0052 adds an official email field for the HIM Service section.
+Migration 0053 replaces all existing laboratory rate rows with the supplied laboratory and send-out pricelists. Existing laboratory rows are permanently deleted when the migration runs.
+Migration 0054 removes the former date from the laboratory rate section label for databases where migration 0053 was already applied.
+Migration 0055 creates the editable Rate and Fees header slideshow.
+Migrations 0056–0060 add security hardening, immutable roles, protected audit monitoring, staff-update MFA step-up, and progressive request cooldowns. Apply them in numerical order; migration 0060 requires the login-throttle table created by 0056. Migration 0061 is an optional one-time reset for lockout state accumulated under the older cooldown policy.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
 Re-running the file will error on `CREATE TABLE` (tables already
@@ -166,8 +170,53 @@ For the Citizen's Charter header slideshow, run
 [`migrations/0050_citizens_charter_slideshow.sql`](migrations/0050_citizens_charter_slideshow.sql).
 For the HIM Service official email field, run
 [`migrations/0052_him_service_official_email.sql`](migrations/0052_him_service_official_email.sql).
+For the supplied laboratory and send-out laboratory prices, run
+[`migrations/0053_laboratory_pricelist.sql`](migrations/0053_laboratory_pricelist.sql).
+If migration 0053 was already run with the dated section label, run
+[`migrations/0054_rename_laboratory_rate_section.sql`](migrations/0054_rename_laboratory_rate_section.sql).
+For the Rate and Fees header slideshow, run
+[`migrations/0055_rate_fees_slideshow.sql`](migrations/0055_rate_fees_slideshow.sql).
+For required staff MFA, persistent progressive login cooldowns, and database row-change audit records, run
+[`migrations/0056_security_hardening.sql`](migrations/0056_security_hardening.sql).
+For immutable staff roles and database-side prevention of additional Admin accounts, run
+[`migrations/0057_immutable_staff_roles.sql`](migrations/0057_immutable_staff_roles.sql).
+For append-only request/database audit history, R2 archive retries, and security-alert storage, run
+[`migrations/0058_protected_audit_monitoring.sql`](migrations/0058_protected_audit_monitoring.sql).
+For a fresh authenticator-code check before staff account updates, run
+[`migrations/0059_staff_update_mfa_step_up.sql`](migrations/0059_staff_update_mfa_step_up.sql).
+For escalating database-backed cooldowns on login/MFA, password-reset, and contact-form attempts, run
+[`migrations/0060_progressive_request_cooldowns.sql`](migrations/0060_progressive_request_cooldowns.sql).
 To remove the discontinued Family and Community Medicine feature and its database content, run
 [`migrations/0051_remove_family_community_medicine.sql`](migrations/0051_remove_family_community_medicine.sql).
+
+Migration 0056 requires all Admin and Editor accounts to enroll in authenticator-app TOTP on their next sign-in. It stores encrypted TOTP secrets and hashed, single-use recovery codes. Keep `SESSION_SECRET` stable: rotating it makes enrolled TOTP secrets unreadable and requires operator recovery and re-enrollment. If a staff member loses both the authenticator and all recovery codes, verify their identity out-of-band, then use the Supabase SQL Editor to disable MFA and revoke their sessions:
+
+```sql
+UPDATE public.admin_users
+SET mfa_enabled = false, mfa_secret_encrypted = NULL, mfa_last_counter = 0
+WHERE id = '<verified-admin-user-uuid>';
+
+DELETE FROM public.admin_mfa_recovery_codes
+WHERE admin_user_id = '<verified-admin-user-uuid>';
+
+UPDATE public.sessions
+SET revoked_at = now()
+WHERE admin_user_id = '<verified-admin-user-uuid>' AND revoked_at IS NULL;
+```
+
+Database row audit logs contain table, operation, primary-key identity, database role, and changed column names only; they do not store row values or contact-message contents. Existing public tables are covered when migration 0056 is applied. Any future public table must attach `public.audit_public_table_change()` to its `INSERT`, `UPDATE`, and `DELETE` operations in its migration.
+
+Migration 0058 blocks update, delete, and truncate operations on both audit tables for the application, and retains staff IDs in historical request logs when a staff account is removed. New request and database audit events enter a durable archive queue in the same database transaction. Configure all four `R2_*` variables in `backend/.env` to send one checksummed JSON object per event to a private Cloudflare R2 bucket; failed uploads retry with backoff. R2's documented S3 compatibility does not support Object Lock, so this is a separate archive with conditional no-overwrite writes, not a WORM guarantee. Use a dedicated bucket/account and restrict who can access its credentials. Admin notifications show when archiving is disabled or the queue has pending events.
+
+The backend creates an Admin-only in-app alert after at least five failed login/MFA events or ten denied admin API requests (HTTP 401/403) from the same IP in a rolling 15-minute window. Email alerts use the Gmail SMTP settings above and go to active Admin accounts. If SMTP is missing or delivery fails, the email stays queued for retry; the in-app alert remains available. These thresholds are review signals, not proof of an attack. Audit History separates failed login/MFA, HTTP 401, HTTP 403, other 4xx, and 5xx counts.
+
+Migration 0059 requires a fresh 6-digit authenticator code on every staff account update (including status changes). The API verifies the code and atomically consumes its TOTP time step, so the same code cannot be replayed. The Admin edit form asks for the code on each save; status-toggle requests also prompt for it.
+
+Migration 0060 sets progressive cooldowns: five failed login/MFA checks trigger a 1-minute lock; each next group of five failures raises it to 5 minutes, then 15 minutes, 30 minutes, and doubling thereafter up to 24 hours. The sixth password-reset request in 15 minutes or second contact submission in five minutes triggers its first 1-minute lock, followed by 5 minutes, 15 minutes, then increasing cooldowns. Levels reset after 24 hours without a recorded attempt. The password-reset/contact counters are database-backed and keyed by HMAC hashes of account/IP identifiers. The general API cap remains fixed at 100 requests per minute because it also covers normal API activity.
+
+Migration 0061 clears the stored login/MFA failure counts and active locks for all accounts in that Supabase project. Use it once, after 0060, only when old lockouts are still active; it does not change passwords, MFA enrollment, sessions, or the progressive cooldown policy. Do not re-run it after new attempts have accumulated, because it clears those counters and locks too.
+
+The backend derives the role for each request from the active `admin_users` row associated with the opaque server-side session. Request bodies cannot set a role; staff create/update schemas reject unknown fields, and staff creation always writes `editor`. The database also prevents role changes and prevents creating a second Admin. The initial Admin is provisioned by the one-time seed script when no Admin exists. Role changes after deployment require a separately reviewed operator action in the Supabase SQL Editor; do not add a role field to the public API.
 For the Emergency Department CMS and organizational chart, run
 [`migrations/0026_emergency_department_content.sql`](migrations/0026_emergency_department_content.sql).
 For the Hospital History image gallery and header slideshow, run

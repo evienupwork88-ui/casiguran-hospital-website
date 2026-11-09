@@ -2,6 +2,8 @@ import bcrypt from "bcrypt";
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
 
+export type AdminRole = "admin" | "editor";
+
 export interface AuthenticatedAdmin {
   id: string;
   email: string;
@@ -10,25 +12,32 @@ export interface AuthenticatedAdmin {
   middleName: string;
   lastName: string;
   nameExtension: string;
-  role: "admin" | "editor";
+  role: AdminRole;
+  mfaEnabled: boolean;
 }
 
-function mapAuthenticatedAdmin(admin: Record<string, any>): AuthenticatedAdmin {
-  const firstName = admin.first_name ?? "";
-  const middleName = admin.middle_name ?? "";
-  const lastName = admin.last_name ?? "";
-  const nameExtension = admin.name_extension ?? "";
-  const fullName = [firstName, middleName, lastName, nameExtension].filter(Boolean).join(" ") || admin.full_name;
+function mapAuthenticatedAdmin(admin: Record<string, unknown>): AuthenticatedAdmin {
+  if (admin.role !== "admin" && admin.role !== "editor") {
+    throw new AppError(403, "This account has no valid staff role.", "INVALID_ACCOUNT_ROLE");
+  }
+
+  const firstName = typeof admin.first_name === "string" ? admin.first_name : "";
+  const middleName = typeof admin.middle_name === "string" ? admin.middle_name : "";
+  const lastName = typeof admin.last_name === "string" ? admin.last_name : "";
+  const nameExtension = typeof admin.name_extension === "string" ? admin.name_extension : "";
+  const fullName = [firstName, middleName, lastName, nameExtension].filter(Boolean).join(" ")
+    || (typeof admin.full_name === "string" ? admin.full_name : "");
 
   return {
-    id: admin.id,
-    email: admin.email,
+    id: String(admin.id),
+    email: String(admin.email),
     fullName,
     firstName,
     middleName,
     lastName,
     nameExtension,
     role: admin.role,
+    mfaEnabled: admin.mfa_enabled === true,
   };
 }
 
@@ -44,8 +53,8 @@ export async function verifyCredentials(
 ): Promise<AuthenticatedAdmin> {
   const { data: admin, error } = await supabase
     .from("admin_users")
-    .select("id, email, password_hash, full_name, first_name, middle_name, last_name, name_extension, role, is_active")
-    .eq("email", email)
+    .select("id, email, password_hash, full_name, first_name, middle_name, last_name, name_extension, role, is_active, mfa_enabled")
+    .eq("email", email.trim().toLowerCase())
     .maybeSingle();
 
   if (error) {
@@ -76,12 +85,15 @@ export async function verifyCredentials(
 }
 
 export async function getAdminById(id: string): Promise<AuthenticatedAdmin | null> {
-  const { data: admin } = await supabase
+  const { data: admin, error } = await supabase
     .from("admin_users")
-    .select("id, email, full_name, first_name, middle_name, last_name, name_extension, role, is_active")
+    .select("id, email, full_name, first_name, middle_name, last_name, name_extension, role, is_active, mfa_enabled")
     .eq("id", id)
     .maybeSingle();
 
+  if (error) {
+    throw new Error(`Failed to load authenticated staff role: ${error.message}`);
+  }
   if (!admin || !admin.is_active) return null;
 
   return mapAuthenticatedAdmin(admin);

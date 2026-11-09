@@ -26,6 +26,14 @@ function envNumber(name: string, fallback: number): number {
 
 const nodeEnv = envString("NODE_ENV", "development");
 const isProduction = nodeEnv === "production";
+const r2AccountId = envString("R2_ACCOUNT_ID", "");
+const r2AccessKeyId = envString("R2_ACCESS_KEY_ID", "");
+const r2SecretAccessKey = envString("R2_SECRET_ACCESS_KEY", "");
+const r2BucketName = envString("R2_BUCKET_NAME", "");
+const r2Configuration = [r2AccountId, r2AccessKeyId, r2SecretAccessKey, r2BucketName];
+if (r2Configuration.some(Boolean) && !r2Configuration.every(Boolean)) {
+  throw new Error("R2 audit archive requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.");
+}
 
 export const env = {
   nodeEnv,
@@ -52,12 +60,18 @@ export const env = {
   sessionCookieDomain: envString("SESSION_COOKIE_DOMAIN", ""),
   sessionSecret: requireEnv("SESSION_SECRET"),
   sessionTtlHours: envNumber("SESSION_TTL_HOURS", 8),
+  preAuthSessionTtlMinutes: 10,
 
   csrfCookieName: "cdh_csrf",
 
-  rateLimitLoginMax: envNumber("RATE_LIMIT_LOGIN_MAX", 5),
-  rateLimitLoginWindowMinutes: envNumber("RATE_LIMIT_LOGIN_WINDOW_MINUTES", 15),
+  rateLimitPasswordResetMax: envNumber("RATE_LIMIT_PASSWORD_RESET_MAX", 5),
+  rateLimitPasswordResetWindowMinutes: envNumber("RATE_LIMIT_PASSWORD_RESET_WINDOW_MINUTES", 15),
   gmailSmtpUser: envString("GMAIL_SMTP_USER", ""),
   gmailSmtpAppPassword: envString("GMAIL_SMTP_APP_PASSWORD", ""),
   passwordResetEmailFrom: envString("PASSWORD_RESET_EMAIL_FROM", ""),
+  r2ArchiveEnabled: r2Configuration.every(Boolean),
+  r2AccountId,
+  r2AccessKeyId,
+  r2SecretAccessKey,
+  r2BucketName,
 };

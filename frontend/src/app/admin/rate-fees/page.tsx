@@ -2,12 +2,17 @@
 
 import { useEffect, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
+import { RateFeesSlideshowManager } from "@/components/admin/rate-fees-slideshow-manager";
 import { useNotifications } from "@/components/providers/notification-provider";
 import { getMe } from "@/lib/api/auth";
 import {
   createRateFee,
   deleteRateFee,
+  ALL_RATE_FEE_SECTIONS,
+  filterRateFeeItemsBySection,
   getAdminRateFees,
+  getRateFeeSectionOptions,
+  OTHER_RATE_FEE_SECTION,
   RATE_FEE_CATEGORIES,
   updateRateFee,
   type RateFeeCategory,
@@ -91,6 +96,7 @@ export default function AdminRateFeesPage() {
   const [items, setItems] = useState<RateFeeItem[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeCategory, setActiveCategory] = useState<RateFeeCategory>("pharmacy");
+  const [activeSection, setActiveSection] = useState(ALL_RATE_FEE_SECTIONS);
   const [form, setForm] = useState(emptyForm);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -116,6 +122,8 @@ export default function AdminRateFeesPage() {
   }, []);
 
   const categoryItems = items.filter((item) => item.category === activeCategory);
+  const sectionOptions = getRateFeeSectionOptions(categoryItems);
+  const visibleCategoryItems = filterRateFeeItemsBySection(categoryItems, activeSection);
   const columns = RATE_FEE_CATEGORIES[activeCategory].columns;
 
   function resetForm() {
@@ -176,6 +184,7 @@ export default function AdminRateFeesPage() {
   return (
     <AdminShell title="Rate & Fees">
       <p className="mb-6 text-slate-600">Manage the prices shown on the public Rate and Fees page. Changes are recorded in Audit History.</p>
+      <RateFeesSlideshowManager />
 
       <div role="tablist" aria-label="Rate and fee categories" className="mb-6 flex gap-2 overflow-x-auto pb-2">
         {categories.map((category) => (
@@ -184,7 +193,7 @@ export default function AdminRateFeesPage() {
             type="button"
             role="tab"
             aria-selected={activeCategory === category}
-            onClick={() => { setActiveCategory(category); setSelectedIds([]); resetForm(); }}
+            onClick={() => { setActiveCategory(category); setActiveSection(ALL_RATE_FEE_SECTIONS); setSelectedIds([]); resetForm(); }}
             className={`shrink-0 rounded-full px-4 py-2 text-sm font-semibold ${activeCategory === category ? "bg-violet-700 text-white" : "bg-white text-violet-800 ring-1 ring-violet-200 hover:bg-violet-50"}`}
           >
             {RATE_FEE_CATEGORIES[category].label}
@@ -205,10 +214,20 @@ export default function AdminRateFeesPage() {
         </div>
       ) : null}
 
+      <label className="mb-4 flex flex-wrap items-center gap-3 text-sm font-semibold text-slate-700">
+        Filter section
+        <select value={activeSection} onChange={(event) => { setActiveSection(event.target.value); setSelectedIds([]); }} className="min-w-56 rounded-xl border border-slate-300 bg-white px-3 py-2.5 font-normal text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-200">
+          <option value={ALL_RATE_FEE_SECTIONS}>All sections</option>
+          {sectionOptions.map((section) => (
+            <option key={section} value={section}>{section === OTHER_RATE_FEE_SECTION ? "Other services" : section}</option>
+          ))}
+        </select>
+      </label>
+
       <div className="mb-3 flex items-center justify-between">
         <label className="flex items-center gap-2 text-sm text-slate-600">
-          <input type="checkbox" checked={categoryItems.length > 0 && selectedIds.length === categoryItems.length} onChange={(event) => setSelectedIds(event.target.checked ? categoryItems.map((item) => item.id) : [])} />
-          Select all in {RATE_FEE_CATEGORIES[activeCategory].label}
+          <input type="checkbox" checked={visibleCategoryItems.length > 0 && visibleCategoryItems.every((item) => selectedIds.includes(item.id))} onChange={(event) => setSelectedIds(event.target.checked ? visibleCategoryItems.map((item) => item.id) : [])} />
+          Select all in current section
         </label>
         <CmsBulkDeleteButton resource="rate-fees" ids={selectedIds} itemLabel="rate or fee item" onDeleted={async () => {
           if (editingId && selectedIds.includes(editingId)) resetForm();
@@ -219,7 +238,7 @@ export default function AdminRateFeesPage() {
         <table className="w-full min-w-[720px] divide-y divide-slate-200">
           <thead className="sticky top-0 z-10 bg-slate-50 shadow-sm">
             <tr>
-              <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all rate and fee items in this category" checked={categoryItems.length > 0 && selectedIds.length === categoryItems.length} onChange={(event) => setSelectedIds(event.target.checked ? categoryItems.map((item) => item.id) : [])} /></th>
+              <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select all rate and fee items in this section" checked={visibleCategoryItems.length > 0 && visibleCategoryItems.every((item) => selectedIds.includes(item.id))} onChange={(event) => setSelectedIds(event.target.checked ? visibleCategoryItems.map((item) => item.id) : [])} /></th>
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Section / Item</th>
               {columns.map((column) => <th key={column} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-slate-500">{column}</th>)}
               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">Status</th>
@@ -229,9 +248,9 @@ export default function AdminRateFeesPage() {
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
               <tr><td colSpan={columns.length + 4} className="px-4 py-8 text-center text-sm text-slate-500">Loading rate and fee items...</td></tr>
-            ) : categoryItems.length === 0 ? (
+            ) : visibleCategoryItems.length === 0 ? (
               <tr><td colSpan={columns.length + 4} className="px-4 py-8 text-center text-sm text-slate-500">No items in this category yet.</td></tr>
-            ) : categoryItems.map((item) => (
+            ) : visibleCategoryItems.map((item) => (
               <tr key={item.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3"><input type="checkbox" aria-label={`Select rate or fee ${item.itemName}`} checked={selectedIds.includes(item.id)} onChange={(event) => setSelectedIds((current) => event.target.checked ? [...current, item.id] : current.filter((id) => id !== item.id))} /></td>
                 <td className="px-4 py-3 text-sm text-slate-800">

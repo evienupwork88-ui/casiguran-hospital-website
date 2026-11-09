@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { listAdminChangeRequests, getAdminChangeRequestCount } from "../services/admin-change-requests.service";
+import { getAdminSecurityAlertSummary } from "../services/security-monitoring.service";
 import { createContactMessage, getContactMessageNotificationSummary, listContactMessageAssignees, listContactMessages, markContactMessageRead, updateContactMessage } from "../services/contact-messages.service";
 import type { CreateContactMessageInput, UpdateContactMessageInput } from "../validation/contact-messages.schema";
 
@@ -19,14 +20,35 @@ export async function listAdminContactMessages(_req: Request, res: Response) {
 export async function getAdminContactMessageNotifications(req: Request, res: Response) {
   const summary = await getContactMessageNotificationSummary();
   if (req.user?.role === "admin") {
-    const [pendingRequestCount, changeRequests] = await Promise.all([
+    const [pendingRequestCount, changeRequests, securityAlerts] = await Promise.all([
       getAdminChangeRequestCount(),
       listAdminChangeRequests(5),
+      getAdminSecurityAlertSummary(),
     ]);
-    res.status(200).json({ ...summary, pendingRequestCount, changeRequests });
+    res.status(200).json({
+      ...summary,
+      pendingRequestCount,
+      changeRequests,
+      securityAlertCount: securityAlerts.count,
+      securityAlerts: securityAlerts.items,
+      auditArchiveEnabled: securityAlerts.auditArchiveEnabled,
+      pendingArchiveCount: securityAlerts.pendingArchiveCount,
+      securityAlertEmailEnabled: securityAlerts.securityAlertEmailEnabled,
+      pendingEmailCount: securityAlerts.pendingEmailCount,
+    });
     return;
   }
-  res.status(200).json({ ...summary, pendingRequestCount: 0, changeRequests: [] });
+  res.status(200).json({
+    ...summary,
+    pendingRequestCount: 0,
+    changeRequests: [],
+    securityAlertCount: 0,
+    securityAlerts: [],
+    auditArchiveEnabled: false,
+    pendingArchiveCount: 0,
+    securityAlertEmailEnabled: false,
+    pendingEmailCount: 0,
+  });
 }
 
 export async function listAdminContactMessageAssignees(_req: Request, res: Response) {

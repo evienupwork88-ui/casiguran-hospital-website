@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isAdminOnlyPath } from "./lib/admin-permissions";
 
 const adminPath = (process.env.ADMIN_PATH || "/admin").replace(/\/+$/, "");
 
@@ -14,7 +15,7 @@ async function proxyRequest(request: NextRequest) {
   if (adminPath !== "/admin" && (pathname === adminPath || pathname.startsWith(customAdminPrefix))) {
     const internalAdminPath = `/admin${pathname.slice(adminPath.length)}`;
     if (!isPublicAdminRoute(internalAdminPath)) {
-      const accessResponse = await verifyAdminSession(request);
+      const accessResponse = await verifyAdminSession(request, internalAdminPath);
       if (accessResponse) return accessResponse;
     }
     const destination = request.nextUrl.clone();
@@ -29,7 +30,7 @@ async function proxyRequest(request: NextRequest) {
   }
 
   if ((pathname === "/admin" || pathname.startsWith("/admin/")) && !isPublicAdminRoute(pathname)) {
-    const accessResponse = await verifyAdminSession(request);
+    const accessResponse = await verifyAdminSession(request, pathname);
     if (accessResponse) return accessResponse;
   }
 
@@ -40,7 +41,7 @@ function isPublicAdminRoute(pathname: string) {
   return pathname === "/admin/login" || pathname === "/admin/forgot-password";
 }
 
-async function verifyAdminSession(request: NextRequest): Promise<NextResponse | null> {
+async function verifyAdminSession(request: NextRequest, internalPath: string): Promise<NextResponse | null> {
   const sessionCookieName = process.env.SESSION_COOKIE_NAME || "cdh_session";
   const sessionToken = request.cookies.get(sessionCookieName)?.value;
   if (!sessionToken) return adminLoginRedirect(request);
@@ -57,7 +58,29 @@ async function verifyAdminSession(request: NextRequest): Promise<NextResponse | 
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
-    if (response.ok) return null;
+    if (response.ok) {
+      const data = await response.json() as {
+        user?: {
+          role?: string;
+          requiresMfaSetup?: boolean;
+          requiresMfaVerification?: boolean;
+        };
+      };
+      if (!data.user
+        || (data.user.role !== "admin" && data.user.role !== "editor")
+        || typeof data.user.requiresMfaSetup !== "boolean"
+        || typeof data.user.requiresMfaVerification !== "boolean") {
+        return new NextResponse("Unable to verify the admin session. Please try again.", { status: 503 });
+      }
+      const requiresMfa = data.user?.requiresMfaSetup || data.user?.requiresMfaVerification;
+      if (requiresMfa && internalPath !== "/admin/mfa") {
+        return NextResponse.redirect(new URL(`${adminPath}/mfa`, request.url));
+      }
+      if (data.user.role === "editor" && isAdminOnlyPath(internalPath)) {
+        return NextResponse.redirect(new URL(`${adminPath}/dashboard`, request.url));
+      }
+      return null;
+    }
     if (response.status === 401 || response.status === 403) return adminLoginRedirect(request);
     return new NextResponse("Unable to verify the admin session. Please try again.", { status: 503 });
   } catch {

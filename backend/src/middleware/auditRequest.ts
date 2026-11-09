@@ -6,6 +6,9 @@ const authActions: Record<string, string> = {
   "/api/auth/logout": "logout",
   "/api/auth/forgot-password": "password_reset_requested",
   "/api/auth/reset-password": "password_reset_completed",
+  "/api/auth/mfa/setup": "mfa_setup_started",
+  "/api/auth/mfa/setup/complete": "mfa_setup_completed",
+  "/api/auth/mfa/verify": "mfa_verified",
 };
 
 function getAuditDetails(req: Request, statusCode: number) {
@@ -16,9 +19,14 @@ function getAuditDetails(req: Request, statusCode: number) {
   const isMutation = ["POST", "PUT", "PATCH", "DELETE"].includes(method);
 
   if (authAction) {
+    const action = route === "/api/auth/login"
+      ? statusCode >= 400 ? "login_failed" : "password_verified"
+      : route === "/api/auth/mfa/verify"
+        ? statusCode >= 400 ? "mfa_verification_failed" : "login_completed"
+        : statusCode >= 400 ? `${authAction}_failed` : authAction;
     return {
       eventType: "auth_event" as const,
-      action: statusCode >= 400 ? `${authAction}_failed` : authAction,
+      action,
       method,
       route,
     };

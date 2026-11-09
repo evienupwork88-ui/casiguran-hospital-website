@@ -23,13 +23,15 @@ export default function AdminLoginPage() {
     async function redirectIfAuthenticated() {
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
       try {
-        await Promise.race([
+        const user = await Promise.race([
           getMe(),
           new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => reject(new Error("Session check timed out")), 10000);
           }),
         ]);
-        if (active) router.replace("/admin/dashboard");
+        if (active) {
+          router.replace(user.requiresMfaSetup || user.requiresMfaVerification ? "/admin/mfa" : "/admin/dashboard");
+        }
       } catch (sessionError) {
         if (!active) return;
         if (!(sessionError instanceof ApiRequestError) || ![401, 403].includes(sessionError.status)) {
@@ -63,9 +65,9 @@ export default function AdminLoginPage() {
     setIsSubmitting(true);
 
     try {
-      await login(email, password);
-      showSuccess("Login successful.", "Welcome back");
-      router.replace("/admin/dashboard");
+      const user = await login(email, password);
+      showSuccess("Password accepted. Complete MFA to continue.", "Sign-in step 1 complete");
+      router.replace(user.requiresMfaSetup || user.requiresMfaVerification ? "/admin/mfa" : "/admin/dashboard");
     } catch (err) {
       const message = err instanceof Error ? err.message : "Login failed. Please try again.";
       setError(message);

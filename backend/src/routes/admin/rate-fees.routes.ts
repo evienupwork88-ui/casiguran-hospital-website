@@ -1,5 +1,11 @@
 import { Router } from "express";
+import multer from "multer";
 import { createAdminRateFee, deleteAdminRateFee, listAdminRateFees, updateAdminRateFee } from "../../controllers/rate-fees.controller";
+import {
+  addAdminRateFeesSlideshowImages,
+  getAdminRateFeesSlideshow,
+  removeAdminRateFeesSlideshowImage,
+} from "../../controllers/rate-fees-slideshow.controller";
 import { requireAuth } from "../../middleware/requireAuth";
 import { requireChangeApproval } from "../../middleware/admin-change-approval";
 import { requireCsrf } from "../../middleware/requireCsrf";
@@ -9,8 +15,15 @@ import { asyncHandler } from "../../utils/asyncHandler";
 import { rateFeeItemSchema, updateRateFeeItemSchema } from "../../validation/rate-fees.schema";
 
 const router = Router();
+const uploadRateFeesSlideshow = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+});
 
 router.use(requireAuth, requireRole("admin", "editor"));
+router.get("/slideshow", asyncHandler(getAdminRateFeesSlideshow));
+router.post("/slideshow/images", requireCsrf, uploadRateFeesSlideshow.array("images", 10), requireChangeApproval("Rate & Fees", "Add header slideshow photos"), asyncHandler(addAdminRateFeesSlideshowImages));
+router.delete("/slideshow/images/:index", requireCsrf, requireChangeApproval("Rate & Fees", "Remove header slideshow photo"), asyncHandler(removeAdminRateFeesSlideshowImage));
 router.get("/", asyncHandler(listAdminRateFees));
 router.post("/", requireCsrf, validateBody(rateFeeItemSchema), requireChangeApproval("Rate & Fees", "Create"), asyncHandler(createAdminRateFee));
 router.put("/:id", requireCsrf, validateBody(updateRateFeeItemSchema), requireChangeApproval("Rate & Fees", "Update"), asyncHandler(updateAdminRateFee));

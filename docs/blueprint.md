@@ -203,7 +203,9 @@ Kept intentionally minimal: **11 operational tables**, plus `audit_logs` for adm
 ### `audit_logs`
 - **Purpose:** accountability and incident-response trail for admin changes, authentication events, and denied admin API requests.
 - **Key fields:** `id`, nullable `actor_id` and `actor_email`, `event_type`, `action`, `method`, `route`, `status_code`, `ip_address`, `user_agent`, and `occurred_at`. Request bodies, passwords, and tokens are never recorded.
-- **Publicly visible:** none. Reading the history is restricted to the `admin` role; the application exposes no update or delete operation for log entries.
+- **Publicly visible:** none. Reading the history is restricted to the `admin` role. Migration 0058 makes both request and database audit records append-only for application roles and queues each event for a separate Cloudflare R2 archive.
+- **Monthly review:** the Admin Audit History provides monthly event totals, daily activity, HTTP 401/403/other 4xx/5xx counts, and failed login/MFA counts. Admins can download all request-level audit events for a selected month as a paginated PDF; the on-screen table shows up to the latest 100 events for that month.
+- **Alerting and archive limits:** five failed login/MFA events or ten denied admin requests from one IP within 15 minutes create an Admin-only in-app alert and a queued email to active Admins. R2 writes use unique keys, SHA-256 metadata, conditional create, and retry; R2 does not support S3 Object Lock, so the archive is separate but not WORM/immutable against someone with delete credentials.
 
 ---
 
@@ -220,6 +222,13 @@ Split by prefix so auth/rate-limit/CORS policy is easy to reason about per zone:
 | POST | `/api/auth/logout` | End the current session | required | any |
 | GET | `/api/auth/me` | Return current user (id, name, role) | required | any |
 
+### Admin Audit History
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| GET | `/api/admin/audit-logs?month=YYYY-MM` | Return up to 100 newest request audit events for the selected Manila calendar month | required | admin |
+| GET | `/api/admin/audit-logs/stats?month=YYYY-MM` | Return event totals and daily counts for the selected Manila calendar month | required | admin |
+| GET | `/api/admin/audit-logs/export?month=YYYY-MM` | Download all request audit events for the selected month as PDF | required | admin |
+
 ### Contact Messages
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
@@ -231,7 +240,7 @@ Split by prefix so auth/rate-limit/CORS policy is easy to reason about per zone:
 
 The admin header polls the notification summary every 30 seconds while visible and shows unread messages in its bell menu.
 
-Contact submissions are plain text only, validated server-side, limited to one per IP per five minutes in a single backend instance, and store request IP/user agent for audit. The in-memory limiter must be replaced with shared storage (e.g. Upstash Redis) before running multiple API instances. Turnstile is not currently enabled; implement and verify tokens server-side before relying on it for bot protection.
+Contact submissions are plain text only, validated server-side, limited to one per IP per five-minute window, and store request IP/user agent for audit. Their database-backed progressive cooldown works across API instances. Turnstile is not currently enabled; implement and verify tokens server-side before relying on it for bot protection.
 
 ### FAQs
 | Method | Endpoint | Purpose | Auth | Role |
@@ -313,7 +322,7 @@ for the account.
 |---|---|---|---|---|
 | GET | `/api/admin/users` | List staff accounts | required | admin |
 | POST | `/api/admin/users` | Create a staff account | required | admin |
-| PUT | `/api/admin/users/:id` | Update role/status | required | admin |
+| PUT | `/api/admin/users/:id` | Update staff profile, password, or active status; role is immutable | required | admin |
 | DELETE | `/api/admin/users/:id` | Deactivate (soft-delete preferred) | required | admin |
 
 ### Media
@@ -343,6 +352,12 @@ Reasoning: the public site is already fully readable without an account, so ther
 
 **Enforcing protected routes:** each admin route declares its own requirements explicitly — `requireAuth` first (401 if missing/invalid), then `requireRole('admin')` or `requireRole('editor','admin')` (403 if wrong role) — rather than a hidden global rule, so it's obvious from reading `routes/admin/*.ts` exactly what a route needs.
 
+**Role authority:** `req.user.role` comes only from the active `admin_users` database row linked to the server-side session; request bodies, browser state, and URL parameters never supply an authorization role. The staff create/update schemas reject unknown fields, and staff creation always writes `editor`. The database prevents role changes through application writes and additional Admin inserts. The initial Admin is operator-provisioned. Admin-only routes include staff management, site settings, audit history, and approval review; the frontend hides these links for Editors as a usability measure, not as the security boundary.
+
+**Sensitive staff edits:** every staff-account update requires a fresh 6-digit authenticator code in addition to the MFA-verified Admin session. The database atomically advances the account's TOTP counter to prevent replay.
+
+**Supabase identity:** this project uses custom Express sessions rather than Supabase Auth. Supabase therefore sees backend database requests as `service_role`, not as the individual staff member. Express resolves and enforces the staff `admin`/`editor` role on every protected API request; the role remains persisted in `public.admin_users`. Do not describe the Supabase database connection role as the logged-in staff role.
+
 **Authorization beyond the route gate:** the main defense is correct route wiring (an editor-safe controller function is never mounted under an admin-only route by mistake) — this is a concrete thing to double-check in code review during Phase 4, since it's a realistic real-world bug class, not a theoretical one.
 
 ---
@@ -356,7 +371,8 @@ Each mechanism below is tied to *where* it actually applies — not included jus
 - **SameSite=Lax (not Strict)** — Strict would break an admin clicking a link from outside the site straight into a logged-in `/admin` page, which is a real workflow. Lax still blocks the classic cross-site form-POST CSRF vector, but — as you noted — it does **not** cover every cross-site request path, which is exactly why CSRF tokens are still required below.
 - **CSRF protection** — applies only to state-changing admin requests (POST/PUT/DELETE) that rely on the cookie for auth; public GET endpoints need none. Mechanism: double-submit cookie — a non-HttpOnly `csrf_token` cookie is readable by our own frontend JS and echoed back as a custom header on mutating requests; the server checks the header against the expected value. A cross-site attacker can make the browser attach cookies, but can't read the CSRF cookie's value to forge the header (blocked by same-origin policy).
 - **CORS** — allowlist exactly the deployed frontend origin (and localhost during dev), `credentials: true`, never a wildcard. This only matters for the admin API surface in practice, since public GET endpoints don't carry credentials anyway.
-- **Rate limiting** — login allows five failed attempts per IP per 15 minutes. Contact submissions allow one per IP per five minutes in a single backend process; use shared Redis before scaling API instances. A lighter general limit on the rest of `/api/*` guards against basic scraping/abuse.
+- **Rate limiting** — database-backed progressive cooldowns cover repeated login/MFA failures, password-reset requests, and contact submissions. A lighter fixed limit on the rest of `/api/*` guards against basic scraping/abuse.
+- **Progressive throttling** — five failed login/MFA verifications trigger a 1-minute cooldown, then the next groups of five failures trigger 5 minutes, 15 minutes, and longer up to 24 hours. The sixth password-reset request within 15 minutes, or second contact submission within five minutes, triggers its 1-minute cooldown; subsequent violations escalate to 5 minutes, 15 minutes, and longer. The general API cap remains fixed at 100 requests per minute to avoid penalizing normal use. Migration 0060 enables these cooldowns; optional migration 0061 clears legacy login/MFA lockouts once across the connected Supabase project.
 - **Input validation** — Zod schemas on every endpoint accepting a body or query params that affect a query, enforced server-side in middleware before the controller runs. Frontend form validation is UX only; it stops nothing malicious on its own.
 - **Security headers** — Helmet globally, for sane defaults (`X-Content-Type-Options`, `Referrer-Policy`, HSTS in production, frame-ancestors). The Content-Security-Policy needs specific thought once we pick how to embed the Facebook page and the map — those third-party embeds will need explicit `frame-src`/`connect-src` allowances, which we should decide concretely rather than leaving CSP overly permissive "just in case."
 - **File upload security** — see Section 8.
@@ -409,7 +425,7 @@ No real values — names and purpose only.
 | `CORS_ALLOWED_ORIGINS` | Comma-separated allowlist |
 | `TIMEZONE` | Display timezone for server-clock clients (default `Asia/Manila`) |
 | `TRUST_PROXY_HOPS` | Trusted reverse-proxy count; set to the exact Hostinger proxy hop count in production |
-| `RATE_LIMIT_LOGIN_MAX` / `RATE_LIMIT_LOGIN_WINDOW_MINUTES` | Login throttle config |
+| `RATE_LIMIT_PASSWORD_RESET_MAX` / `RATE_LIMIT_PASSWORD_RESET_WINDOW_MINUTES` | Password-reset request threshold and window |
 | `MAX_UPLOAD_IMAGE_MB` / `MAX_UPLOAD_DOC_MB` | Upload size caps |
 | `STORAGE_BUCKET_NAME` | Supabase Storage bucket |
 | `APPROVAL_STAGING_BUCKET_NAME` | Private bucket used to hold files awaiting Super Admin review |

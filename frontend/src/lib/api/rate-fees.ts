@@ -4,7 +4,7 @@ export const RATE_FEE_CATEGORIES = {
   pharmacy: { label: "Pharmacy Pricelist", columns: ["Reg. Price", "Senior/PWD", "Discount"] },
   dental: { label: "Dental Examination", columns: ["OPD/MAIP", "PHIC"] },
   himd: { label: "HIMD Services", columns: ["Price"] },
-  laboratory: { label: "Laboratory Services", columns: ["OPD/MAIP", "PHIC"] },
+  laboratory: { label: "Laboratory Services", columns: ["Price (₱)"] },
   radiology: { label: "Radiology Services", columns: ["Price"] },
 } as const;
 
@@ -24,6 +24,20 @@ export type RateFeeItem = {
 };
 
 export type RateFeeInput = Omit<RateFeeItem, "id" | "updatedAt">;
+
+export const ALL_RATE_FEE_SECTIONS = "__all_sections__";
+export const OTHER_RATE_FEE_SECTION = "__other_services__";
+
+export function getRateFeeSectionOptions(items: RateFeeItem[]): string[] {
+  return [...new Set(items.map((item) => item.section?.trim() || OTHER_RATE_FEE_SECTION))]
+    .sort((a, b) => a.localeCompare(b));
+}
+
+export function filterRateFeeItemsBySection(items: RateFeeItem[], section: string): RateFeeItem[] {
+  if (section === ALL_RATE_FEE_SECTIONS) return items;
+  if (section === OTHER_RATE_FEE_SECTION) return items.filter((item) => !item.section?.trim());
+  return items.filter((item) => item.section?.trim() === section);
+}
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 

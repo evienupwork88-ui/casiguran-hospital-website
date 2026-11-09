@@ -15,6 +15,12 @@ export const completePasswordResetSchema = z.object({
   password: z.string().min(12, "Password must be at least 12 characters long").max(128, "Password must be 128 characters or less"),
 });
 
+export const mfaCodeSchema = z.object({
+  code: z.string().trim().min(6).max(32),
+  useRecoveryCode: z.boolean().optional(),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RequestPasswordResetInput = z.infer<typeof requestPasswordResetSchema>;
 export type CompletePasswordResetInput = z.infer<typeof completePasswordResetSchema>;
+export type MfaCodeInput = z.infer<typeof mfaCodeSchema>;

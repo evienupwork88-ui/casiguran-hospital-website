@@ -26,6 +26,8 @@ import {
   X,
 } from "lucide-react";
 import { getAdminContactMessageNotifications, type ContactMessageNotificationSummary } from "@/lib/api/contact-messages";
+import { getMe, type AuthUser } from "@/lib/api/auth";
+import { isAdminOnlyPath } from "@/lib/admin-permissions";
 import { approveAndApplyChangeRequest, rejectChangeRequest } from "@/lib/api/admin-change-requests";
 import { useServerClock } from "@/lib/hooks/use-server-clock";
 
@@ -80,7 +82,7 @@ const navigation = [
 
 type AdminUserMeta = {
   fullName?: string;
-  role?: string;
+  role?: AuthUser["role"];
 };
 
 function formatNotificationTime(value: string): string {
@@ -107,6 +109,7 @@ export function AdminShell({
 }) {
   const pathname = usePathname();
   const isAuditHistory = pathname.startsWith("/admin/audit-logs");
+  const [currentRole, setCurrentRole] = useState<AdminUserMeta["role"]>(user?.role);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { time: serverClockTime, error: clockError, sync: syncServerClock } = useServerClock();
@@ -120,6 +123,24 @@ export function AdminShell({
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (user?.role) {
+      setCurrentRole(user.role);
+      return;
+    }
+
+    let active = true;
+    void getMe().then((currentUser) => {
+      if (active) setCurrentRole(currentUser.role);
+    }).catch((error: unknown) => {
+      console.error("[admin shell role load failed]", error);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [user?.role]);
 
   const refreshContactNotifications = useCallback(async () => {
     try {
@@ -229,7 +250,10 @@ export function AdminShell({
     };
   }, [mobileOpen]);
 
-  const totalNotifications = (contactNotifications?.unreadCount ?? 0) + (contactNotifications?.pendingRequestCount ?? 0);
+  const totalNotifications =
+    (contactNotifications?.unreadCount ?? 0) +
+    (contactNotifications?.pendingRequestCount ?? 0) +
+    (contactNotifications?.securityAlertCount ?? 0);
 
   return (
     <div className="admin-theme min-h-dvh overflow-x-hidden bg-[#f5f3ff] text-slate-900">
@@ -283,7 +307,14 @@ export function AdminShell({
 
           <nav className="flex-1 overscroll-contain overflow-y-auto px-3 py-4">
             <div className="space-y-5">
-              {navigation.map((group) => (
+              {navigation.map((group) => {
+                const visibleItems = group.items.filter((item) => {
+                  if (currentRole === "admin" || !("href" in item)) return true;
+                  return !item.href || !isAdminOnlyPath(item.href);
+                });
+                if (!visibleItems.length) return null;
+
+                return (
                 <div key={group.section}>
                   {!isCollapsed && (
                     <p className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-[0.22em] text-violet-200/80">
@@ -292,7 +323,7 @@ export function AdminShell({
                   )}
 
                   <div className="space-y-1.5">
-                    {group.items.map((item) => {
+                    {visibleItems.map((item) => {
                       const Icon = item.icon;
                       const children = "children" in item ? item.children : undefined;
                       const isPatientCareActive = children?.some((child) => pathname === child.href || pathname.startsWith(child.href)) ?? false;
@@ -410,7 +441,8 @@ export function AdminShell({
                     })}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </nav>
 
@@ -425,7 +457,7 @@ export function AdminShell({
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-white">{user?.fullName ?? "Admin"}</p>
                     <p className="mt-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-violet-200">
-                      {user?.role ?? "Administrator"}
+                      {currentRole === "admin" ? "Administrator" : currentRole === "editor" ? "Editor" : "Staff"}
                     </p>
                   </div>
                 )}
@@ -525,6 +557,7 @@ export function AdminShell({
                                 ? [
                                   contactNotifications?.pendingRequestCount ? `${contactNotifications.pendingRequestCount} change request${contactNotifications.pendingRequestCount === 1 ? "" : "s"}` : "",
                                   contactNotifications?.unreadCount ? `${contactNotifications.unreadCount} unread message${contactNotifications.unreadCount === 1 ? "" : "s"}` : "",
+                                  contactNotifications?.securityAlertCount ? `${contactNotifications.securityAlertCount} security alert${contactNotifications.securityAlertCount === 1 ? "" : "s"}` : "",
                                 ].filter(Boolean).join(" · ")
                                 : "You’re all caught up"}
                             </p>
@@ -542,6 +575,33 @@ export function AdminShell({
                           <p role="status" className="px-4 py-5 text-sm text-slate-500">Loading notifications...</p>
                         ) : (
                           <div className="max-h-[min(70vh,36rem)] overflow-y-auto">
+                          {currentRole === "admin" && (!contactNotifications.auditArchiveEnabled || contactNotifications.pendingArchiveCount > 0 || !contactNotifications.securityAlertEmailEnabled || contactNotifications.pendingEmailCount > 0) ? (
+                            <div role="status" className="space-y-1 border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                              {!contactNotifications.auditArchiveEnabled ? <p>R2 audit archive is disabled. Configure the backend R2 settings to enable it.</p> : null}
+                              {contactNotifications.pendingArchiveCount > 0 ? <p>{contactNotifications.pendingArchiveCount} audit event{contactNotifications.pendingArchiveCount === 1 ? "" : "s"} awaiting archive upload or retry.</p> : null}
+                              {!contactNotifications.securityAlertEmailEnabled ? <p>Security alert email is not configured; alerts remain available in the Admin console.</p> : null}
+                              {contactNotifications.pendingEmailCount > 0 ? <p>{contactNotifications.pendingEmailCount} security alert email{contactNotifications.pendingEmailCount === 1 ? "" : "s"} queued or retrying.</p> : null}
+                            </div>
+                          ) : null}
+                          {contactNotifications.securityAlerts.length ? (
+                            <ul className="divide-y divide-red-100 border-b border-slate-100 bg-red-50/60">
+                              {contactNotifications.securityAlerts.map((alert) => (
+                                <li key={alert.id} className="px-4 py-3">
+                                  <div className="flex items-start gap-3">
+                                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alert.severity === "high" ? "bg-red-600" : "bg-amber-500"}`} aria-hidden="true" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-semibold text-slate-900">{alert.title}</p>
+                                      <p className="mt-1 text-xs leading-5 text-slate-700">{alert.summary}</p>
+                                      <p className="mt-1 text-[11px] text-slate-500">IP {alert.sourceIp} · {formatNotificationTime(alert.createdAt)}</p>
+                                      <Link href="/admin/audit-logs" onClick={() => setIsNotificationsOpen(false)} className="mt-2 inline-block text-xs font-semibold text-violet-800 hover:underline">
+                                        Review audit history
+                                      </Link>
+                                    </div>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
                           {contactNotifications.changeRequests.length ? (
                             <ul className="divide-y divide-amber-100 border-b border-slate-100 bg-amber-50/50">
                               {contactNotifications.changeRequests.map((item) => (
@@ -587,8 +647,8 @@ export function AdminShell({
                             ))}
                           </ul>
                           ) : null}
-                          {!contactNotifications.changeRequests.length && !contactNotifications.items.length ? (
-                          <p className="px-4 py-5 text-sm text-slate-500">No new contact messages.</p>
+                          {!contactNotifications.securityAlerts.length && !contactNotifications.changeRequests.length && !contactNotifications.items.length ? (
+                          <p className="px-4 py-5 text-sm text-slate-500">No new notifications.</p>
                           ) : null}
                           </div>
                         )}

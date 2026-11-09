@@ -10,6 +10,7 @@ declare global {
   namespace Express {
     interface Request {
       user?: AuthenticatedAdmin;
+      session?: import("../services/session.service").SessionRecord;
       approvalRequestBody?: unknown;
     }
   }
@@ -23,7 +24,7 @@ declare global {
  * Deliberately does not distinguish these cases in the response: from
  * the client's point of view "not authenticated" is one condition.
  */
-export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
+export async function requireSession(req: Request, _res: Response, next: NextFunction) {
   const rawToken = req.cookies?.[env.sessionCookieName];
 
   if (!rawToken) {
@@ -41,5 +42,16 @@ export async function requireAuth(req: Request, _res: Response, next: NextFuncti
   }
 
   req.user = admin;
+  req.session = session;
   next();
+}
+
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  await requireSession(req, res, (error?: unknown) => {
+    if (error) return next(error);
+    if (!req.user?.mfaEnabled || !req.session?.mfaVerifiedAt) {
+      return next(new AppError(403, "MFA verification required", "MFA_REQUIRED"));
+    }
+    next();
+  });
 }

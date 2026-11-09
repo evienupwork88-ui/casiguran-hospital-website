@@ -31,6 +31,21 @@ export type ContactMessageNotificationSummary = {
   items: Pick<ContactMessageItem, "id" | "name" | "subject" | "createdAt">[];
   pendingRequestCount: number;
   changeRequests: AdminChangeRequest[];
+  securityAlertCount: number;
+  auditArchiveEnabled: boolean;
+  pendingArchiveCount: number;
+  securityAlertEmailEnabled: boolean;
+  pendingEmailCount: number;
+  securityAlerts: {
+    id: string;
+    category: "failed_authentication" | "repeated_access_denied";
+    severity: "medium" | "high";
+    title: string;
+    summary: string;
+    sourceIp: string;
+    eventCount: number;
+    createdAt: string;
+  }[];
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";

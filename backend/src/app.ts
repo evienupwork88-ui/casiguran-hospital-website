@@ -83,9 +83,8 @@ export function createApp() {
   app.use(cookieParser());
   app.use(auditRequest);
 
-  // Light, general-purpose limiter across the whole API — the login
-  // route additionally has its own much stricter limiter (see
-  // middleware/rateLimit.ts and routes/auth.routes.ts).
+  // Keep the general API limit fixed; authentication and abuse-prone public
+  // routes use their own database-backed progressive cooldowns.
   app.use(
     "/api",
     rateLimit({
