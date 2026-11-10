@@ -27,6 +27,7 @@ type ChangeRequestRow = {
   status: "pending" | "approved" | "rejected" | "applying" | "applied";
   reviewer_id: string | null;
   rejection_reason: string | null;
+  requester_read_at: string | null;
   application_error: string | null;
   created_at: string;
   decided_at: string | null;
@@ -46,13 +47,14 @@ export type AdminChangeRequest = {
   files: { fieldName: string; originalName: string; mimeType: string; size: number }[];
   status: ChangeRequestRow["status"];
   rejectionReason: string | null;
+  requesterReadAt: string | null;
   applicationError: string | null;
   createdAt: string;
   decidedAt: string | null;
   appliedAt: string | null;
 };
 
-const REQUEST_COLUMNS = "id, requester_id, requester_name, resource, action, method, request_path, content_type, request_body, files, status, reviewer_id, rejection_reason, application_error, created_at, decided_at, applied_at";
+const REQUEST_COLUMNS = "id, requester_id, requester_name, resource, action, method, request_path, content_type, request_body, files, status, reviewer_id, rejection_reason, requester_read_at, application_error, created_at, decided_at, applied_at";
 
 function mapRequest(row: ChangeRequestRow): AdminChangeRequest {
   return {
@@ -68,6 +70,7 @@ function mapRequest(row: ChangeRequestRow): AdminChangeRequest {
     files: (row.files ?? []).map(({ fieldName, originalName, mimeType, size }) => ({ fieldName, originalName, mimeType, size })),
     status: row.status,
     rejectionReason: row.rejection_reason,
+    requesterReadAt: row.requester_read_at,
     applicationError: row.application_error,
     createdAt: row.created_at,
     decidedAt: row.decided_at,
@@ -135,6 +138,7 @@ export async function createAdminChangeRequest(req: Request, resource: string, a
       content_type: req.get("content-type")?.split(";")[0] ?? null,
       request_body: req.approvalRequestBody ?? req.body ?? {},
       files: stagedFiles,
+      admin_email_next_attempt_at: new Date().toISOString(),
     });
     if (error) throw new Error(`Failed to save approval request: ${error.message}`);
     return id;
@@ -144,7 +148,7 @@ export async function createAdminChangeRequest(req: Request, resource: string, a
   }
 }
 
-export async function listAdminChangeRequests(limit = 12): Promise<AdminChangeRequest[]> {
+export async function listAdminChangeRequests(limit = 100): Promise<AdminChangeRequest[]> {
   const staleApplyingBefore = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { error: recoveryError } = await supabase.from("admin_change_requests")
     .update({ status: "approved", application_error: "Previous apply attempt did not finish." })
@@ -162,6 +166,47 @@ export async function listAdminChangeRequests(limit = 12): Promise<AdminChangeRe
   return ((data ?? []) as ChangeRequestRow[]).map(mapRequest);
 }
 
+export async function listRejectedChangeRequestNotifications(requesterId: string, limit = 5): Promise<AdminChangeRequest[]> {
+  const { data, error } = await supabase
+    .from("admin_change_requests")
+    .select(REQUEST_COLUMNS)
+    .eq("requester_id", requesterId)
+    .eq("status", "rejected")
+    .order("decided_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Failed to load rejected change-request notifications: ${error.message}`);
+  return ((data ?? []) as ChangeRequestRow[]).map(mapRequest);
+}
+
+export async function getUnreadRejectedChangeRequestCount(requesterId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("admin_change_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("requester_id", requesterId)
+    .eq("status", "rejected")
+    .is("requester_read_at", null);
+  if (error) throw new Error(`Failed to count unread rejected change requests: ${error.message}`);
+  if (count === null) throw new Error("Failed to count unread rejected change requests.");
+  return count;
+}
+
+export async function markRejectedChangeRequestRead(id: string, requesterId: string): Promise<void> {
+  const request = await getRequestRow(id);
+  if (request.requester_id !== requesterId || request.status !== "rejected") {
+    throw new AppError(404, "Rejected change request not found.", "REJECTED_CHANGE_REQUEST_NOT_FOUND");
+  }
+  if (request.requester_read_at) return;
+
+  const { error } = await supabase
+    .from("admin_change_requests")
+    .update({ requester_read_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("requester_id", requesterId)
+    .eq("status", "rejected")
+    .is("requester_read_at", null);
+  if (error) throw new Error(`Failed to mark rejected change request as read: ${error.message}`);
+}
+
 export async function getAdminChangeRequestCount(): Promise<number> {
   const { count, error } = await supabase
     .from("admin_change_requests")
@@ -170,6 +215,21 @@ export async function getAdminChangeRequestCount(): Promise<number> {
   if (error) throw new Error(`Failed to count approval requests: ${error.message}`);
   if (count === null) throw new Error("Failed to count approval requests.");
   return count;
+}
+
+export async function getAdminChangeRequestEmailStatus(): Promise<{ enabled: boolean; pendingCount: number }> {
+  const { count, error } = await supabase
+    .from("admin_change_requests")
+    .select("id", { count: "exact", head: true })
+    .eq("status", "pending")
+    .is("admin_email_sent_at", null)
+    .not("admin_email_next_attempt_at", "is", null);
+  if (error) throw new Error(`Failed to count pending change-request emails: ${error.message}`);
+  if (count === null) throw new Error("Failed to count pending change-request emails.");
+  return {
+    enabled: Boolean(env.gmailSmtpUser && env.gmailSmtpAppPassword && env.passwordResetEmailFrom),
+    pendingCount: count,
+  };
 }
 
 async function getRequestRow(id: string): Promise<ChangeRequestRow> {

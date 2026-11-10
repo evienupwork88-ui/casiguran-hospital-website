@@ -45,7 +45,7 @@ import adminSettingsRoutes from "./routes/admin/settings.routes";
 import adminUsersRoutes from "./routes/admin/users.routes";
 import adminKeyOfficialsRoutes from "./routes/admin/key-officials.routes";
 import adminTrainingsRoutes from "./routes/admin/trainings.routes";
-import adminContactMessagesRoutes from "./routes/admin/contact-messages.routes";
+import adminNotificationsRoutes from "./routes/admin/notifications.routes";
 import adminChangeRequestsRoutes from "./routes/admin/change-requests.routes";
 import adminFaqRoutes from "./routes/admin/faqs.routes";
 import adminAuditLogsRoutes from "./routes/admin/audit-logs.routes";
@@ -137,7 +137,7 @@ export function createApp() {
   app.use("/api/admin/users", adminUsersRoutes);
   app.use("/api/admin/key-officials", adminKeyOfficialsRoutes);
   app.use("/api/admin/trainings", adminTrainingsRoutes);
-  app.use("/api/admin/contact-messages", adminContactMessagesRoutes);
+  app.use("/api/admin/notifications", adminNotificationsRoutes);
   app.use("/api/admin/change-requests", adminChangeRequestsRoutes);
   app.use("/api/admin/faqs", adminFaqRoutes);
   app.use("/api/admin/audit-logs", adminAuditLogsRoutes);

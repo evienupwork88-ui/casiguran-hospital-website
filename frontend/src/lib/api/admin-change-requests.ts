@@ -13,6 +13,7 @@ export type AdminChangeRequest = {
   files: { fieldName: string; originalName: string; mimeType: string; size: number }[];
   status: "pending" | "approved" | "rejected" | "applying" | "applied";
   rejectionReason: string | null;
+  requesterReadAt: string | null;
   applicationError: string | null;
   createdAt: string;
   decidedAt: string | null;
@@ -30,6 +31,33 @@ async function parseJson<T>(response: Response): Promise<T> {
 function csrfHeaders(): Record<string, string> {
   const token = getCsrfToken();
   return token ? { "x-csrf-token": token } : {};
+}
+
+export async function listAdminChangeRequests(): Promise<AdminChangeRequest[]> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/change-requests`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const { items } = await parseJson<{ items: AdminChangeRequest[] }>(response);
+  return items;
+}
+
+export async function listMyRejectedChangeRequests(): Promise<AdminChangeRequest[]> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/change-requests/rejected`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  const { items } = await parseJson<{ items: AdminChangeRequest[] }>(response);
+  return items;
+}
+
+export async function markRejectedChangeRequestRead(id: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/change-requests/${id}/read`, {
+    method: "PATCH",
+    credentials: "include",
+    headers: csrfHeaders(),
+  });
+  await parseJson<{ message: string }>(response);
 }
 
 export async function approveAndApplyChangeRequest(id: string): Promise<void> {

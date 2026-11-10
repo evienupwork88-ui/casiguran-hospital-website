@@ -42,7 +42,7 @@ before running the updated admin seed script.
 Migration 0012 is also required before accessing the Hospital History
 editor under Admin → Documents.
 Migration 0013 is required before using the Trainings page and manager.
-Migration 0014 is required before accepting Contact form submissions and using the Admin inbox.
+Migrations 0014–0042 created and expanded the legacy database-backed Contact Messages inbox. Migration 0065 removes that table and permanently deletes its stored rows as the public Contact form moves to email-only delivery.
 Migration 0015 is required for separately stored Contact form name fields.
 Migration 0016 is required for admin activity and authentication audit history.
 Migration 0017 is required to store official positions separately for the three department-head profiles.
@@ -83,7 +83,8 @@ Migration 0052 adds an official email field for the HIM Service section.
 Migration 0053 replaces all existing laboratory rate rows with the supplied laboratory and send-out pricelists. Existing laboratory rows are permanently deleted when the migration runs.
 Migration 0054 removes the former date from the laboratory rate section label for databases where migration 0053 was already applied.
 Migration 0055 creates the editable Rate and Fees header slideshow.
-Migrations 0056–0060 add security hardening, immutable roles, protected audit monitoring, staff-update MFA step-up, and progressive request cooldowns. Apply them in numerical order; migration 0060 requires the login-throttle table created by 0056. Migration 0061 is an optional one-time reset for lockout state accumulated under the older cooldown policy.
+Migrations 0056–0060 add security hardening, immutable roles, protected audit monitoring, staff-update MFA step-up, and progressive request cooldowns. Apply them in numerical order; migration 0060 requires the login-throttle table created by 0056. Migration 0061 is an optional one-time reset for lockout state accumulated under the older cooldown policy. Migration 0062 enables unread rejection notifications for Editors. Migration 0063 adds durable email delivery and retry state for new Editor change requests; apply it before deploying the matching backend.
+Migration 0065 deletes all legacy Contact Messages from the active database and drops the unused `contact_messages` table; apply it after deploying the email-only Contact flow. Supabase-managed backups may retain older database snapshots until their configured retention period expires.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
 Re-running the file will error on `CREATE TABLE` (tables already
@@ -215,6 +216,8 @@ Migration 0059 requires a fresh 6-digit authenticator code on every staff accoun
 Migration 0060 sets progressive cooldowns: five failed login/MFA checks trigger a 1-minute lock; each next group of five failures raises it to 5 minutes, then 15 minutes, 30 minutes, and doubling thereafter up to 24 hours. The sixth password-reset request in 15 minutes or second contact submission in five minutes triggers its first 1-minute lock, followed by 5 minutes, 15 minutes, then increasing cooldowns. Levels reset after 24 hours without a recorded attempt. The password-reset/contact counters are database-backed and keyed by HMAC hashes of account/IP identifiers. The general API cap remains fixed at 100 requests per minute because it also covers normal API activity.
 
 Migration 0061 clears the stored login/MFA failure counts and active locks for all accounts in that Supabase project. Use it once, after 0060, only when old lockouts are still active; it does not change passwords, MFA enrollment, sessions, or the progressive cooldown policy. Do not re-run it after new attempts have accumulated, because it clears those counters and locks too.
+
+Migration 0062 adds `requester_read_at` to editor change requests. It is required for the notification center to show rejected proposals as unread to their requester and to persist when they mark them as read. Admins see pending proposals and the broader security/contact notification summary; Editors see only rejection notices for their own requests.
 
 The backend derives the role for each request from the active `admin_users` row associated with the opaque server-side session. Request bodies cannot set a role; staff create/update schemas reject unknown fields, and staff creation always writes `editor`. The database also prevents role changes and prevents creating a second Admin. The initial Admin is provisioned by the one-time seed script when no Admin exists. Role changes after deployment require a separately reviewed operator action in the Supabase SQL Editor; do not add a role field to the public API.
 For the Emergency Department CMS and organizational chart, run

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Clock3, Mail, MapPin, Phone, Send, Siren } from "lucide-react";
+import Script from "next/script";
 import { PublicShell } from "@/components/public/site-shell";
 import { submitContactMessage } from "@/lib/api/contact-messages";
 import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
@@ -18,12 +19,39 @@ const dayLabels = {
   sunday: "Sunday",
 };
 
-const contactSubjects = ["Appointment/OPD", "Billing/PhilHealth", "Medical Records", "Job/Application", "Other"] as const;
-type ContactSubject = (typeof contactSubjects)[number];
-const emptyMessage = { lastName: "", firstName: "", middleName: "", nameExtension: "", contactInfo: "", subject: "" as ContactSubject | "", message: "", website: "" };
+const contactCategories = [
+  "General Hospital Inquiry",
+  "Hospital Services and Facilities",
+  "HIMS / Medical Records",
+  "Employment Opportunities",
+  "Website Technical Concerns",
+  "Feedback and Suggestions",
+  "Other Administrative Concerns",
+] as const;
+type ContactCategory = (typeof contactCategories)[number];
+const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? "";
+const emptyMessage = { lastName: "", firstName: "", middleName: "", nameExtension: "", contactInfo: "", category: "" as ContactCategory | "", message: "", website: "" };
+const medicalPrivacyNotice = "Please do not submit medical records, laboratory results, diagnoses, or other confidential patient information through this form. This channel is intended for general inquiries only. For medical concerns, please contact the hospital directly or visit the appropriate department. For emergencies, proceed to the Emergency Department.";
 
-function isContactSubject(value: string): value is ContactSubject {
-  return contactSubjects.some((subject) => subject === value);
+type TurnstileWidgetOptions = {
+  sitekey: string;
+  action: string;
+  callback: (token: string) => void;
+  "expired-callback": () => void;
+  "error-callback": () => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (container: HTMLElement, options: TurnstileWidgetOptions) => string;
+      reset: (widgetId?: string) => void;
+    };
+  }
+}
+
+function isContactCategory(value: string): value is ContactCategory {
+  return contactCategories.some((category) => category === value);
 }
 
 function formatTime(value: string) {
@@ -46,7 +74,36 @@ export default function ContactPage() {
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
-  const [respectfulUseAccepted, setRespectfulUseAccepted] = useState(false);
+  const [privacyNoticeAccepted, setPrivacyNoticeAccepted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState("");
+  const turnstileContainerRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetIdRef = useRef<string | null>(null);
+
+  const initializeTurnstile = useCallback(() => {
+    if (!turnstileSiteKey || !turnstileContainerRef.current || !window.turnstile || turnstileWidgetIdRef.current) return;
+    turnstileWidgetIdRef.current = window.turnstile.render(turnstileContainerRef.current, {
+      sitekey: turnstileSiteKey,
+      action: "contact_inquiry",
+      callback: (token) => {
+        setTurnstileToken(token);
+        setTurnstileError("");
+      },
+      "expired-callback": () => {
+        setTurnstileToken("");
+        setTurnstileError("The security check expired. Please complete it again.");
+      },
+      "error-callback": () => {
+        setTurnstileToken("");
+        setTurnstileError("Security verification is unavailable. Please try again later.");
+      },
+    });
+  }, []);
+
+  const resetTurnstile = useCallback(() => {
+    setTurnstileToken("");
+    if (turnstileWidgetIdRef.current) window.turnstile?.reset(turnstileWidgetIdRef.current);
+  }, []);
 
   useEffect(() => {
     async function loadSettings() {
@@ -87,24 +144,28 @@ export default function ContactPage() {
       setSubmitError("Each name field must be 200 characters or less.");
       return;
     }
-    if (trimmed.message.length < 20 || trimmed.message.length > 1000) {
-      setSubmitError("Message must be between 20 and 1000 characters.");
+    if (!trimmed.message || trimmed.message.length > 1000) {
+      setSubmitError("Enter a message of 1000 characters or less.");
       return;
     }
     if ([trimmed.lastName, trimmed.firstName, trimmed.middleName, trimmed.nameExtension, trimmed.message].some(containsProfanity)) {
       setSubmitError("Please use respectful language.");
       return;
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contactInfo) && !(/^[+\d().\-\s]+$/.test(trimmed.contactInfo) && trimmed.contactInfo.replace(/\D/g, "").length >= 7 && trimmed.contactInfo.replace(/\D/g, "").length <= 15)) {
-      setSubmitError("Enter a valid email address or cellphone number.");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed.contactInfo) && !(/^[+\d().\-\s]+$/.test(trimmed.contactInfo) && trimmed.contactInfo.replace(/\D/g, "").length >= 10 && trimmed.contactInfo.replace(/\D/g, "").length <= 15)) {
+      setSubmitError("Enter a valid email address or cellphone number (10 to 15 digits).");
       return;
     }
-    if (!respectfulUseAccepted) {
-      setSubmitError("Please agree to use respectful language and not include sensitive medical information.");
+    if (!privacyNoticeAccepted) {
+      setSubmitError("Please read and accept the privacy notice.");
       return;
     }
-    if (!isContactSubject(trimmed.subject)) {
+    if (!isContactCategory(trimmed.category)) {
       setSubmitError("Choose a message category.");
+      return;
+    }
+    if (!turnstileToken) {
+      setSubmitError("Please complete the security check.");
       return;
     }
     setIsSubmitting(true);
@@ -113,15 +174,18 @@ export default function ContactPage() {
     try {
       const message = await submitContactMessage({
         ...trimmed,
-        subject: trimmed.subject,
-        respectfulUseAccepted: true,
+        category: trimmed.category,
+        privacyNoticeAccepted: true,
+        turnstileToken,
       });
       setMessageForm(emptyMessage);
-      setRespectfulUseAccepted(false);
+      setPrivacyNoticeAccepted(false);
       setSuccessMessage(message);
       setSubmitSuccess(true);
+      resetTurnstile();
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Unable to submit your message. Please try again.");
+      resetTurnstile();
     } finally {
       setIsSubmitting(false);
     }
@@ -193,6 +257,14 @@ export default function ContactPage() {
             </div>
 
             <form onSubmit={handleMessageSubmit} className="overflow-hidden rounded-xl border border-violet-200 bg-white shadow-[0_16px_35px_rgba(76,29,149,0.05)]">
+              {turnstileSiteKey ? (
+                <Script
+                  src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+                  strategy="afterInteractive"
+                  onReady={initializeTurnstile}
+                  onError={() => setTurnstileError("Security verification is unavailable. Please try again later.")}
+                />
+              ) : null}
               <div className="border-b border-violet-100 bg-violet-50/80 px-5 py-3">
                 <p className="text-[0.68rem] font-bold uppercase tracking-[0.24em] text-violet-700">Get in touch</p>
                 <h2 className="mt-1 text-xl font-semibold text-slate-900">Contact our team</h2>
@@ -212,7 +284,7 @@ export default function ContactPage() {
                   <input maxLength={200} autoComplete="additional-name" value={messageForm.middleName} onChange={(event) => setMessageForm((current) => ({ ...current, middleName: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white" />
                 </label>
                 <label className="block text-sm font-medium text-slate-700">
-                  Extension <span className="font-normal text-slate-500">(optional)</span>
+                  Name extension <span className="font-normal text-slate-500">(optional)</span>
                   <input maxLength={200} autoComplete="honorific-suffix" placeholder="Jr., III" value={messageForm.nameExtension} onChange={(event) => setMessageForm((current) => ({ ...current, nameExtension: event.target.value }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white" />
                 </label>
                 <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
@@ -221,30 +293,39 @@ export default function ContactPage() {
                   <span className="mt-1 block text-xs font-normal text-slate-500">Enter either one so we can contact you.</span>
                 </label>
                 <label className="block text-sm font-medium text-slate-700 sm:col-span-2">
-                  Subject
-                  <select required value={messageForm.subject} onChange={(event) => setMessageForm((current) => ({ ...current, subject: event.target.value as ContactSubject | "" }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white">
+                  Inquiry category
+                  <select required value={messageForm.category} onChange={(event) => setMessageForm((current) => ({ ...current, category: event.target.value as ContactCategory | "" }))} className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white">
                     <option value="">Choose a category</option>
-                    <option>Appointment/OPD</option><option>Billing/PhilHealth</option><option>Medical Records</option><option>Job/Application</option><option>Other</option>
+                    {contactCategories.map((category) => <option key={category}>{category}</option>)}
                   </select>
                 </label>
                 <label className="block text-sm font-medium text-slate-700 sm:col-span-2 lg:col-span-4">
                   Message
-                  <textarea required minLength={20} maxLength={1000} rows={5} value={messageForm.message} onChange={(event) => setMessageForm((current) => ({ ...current, message: event.target.value }))} className="mt-2 min-h-36 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white" />
+                  <textarea required maxLength={1000} rows={5} value={messageForm.message} onChange={(event) => setMessageForm((current) => ({ ...current, message: event.target.value }))} className="mt-2 min-h-36 w-full resize-y rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white" />
                   <span className="mt-1 block text-xs text-slate-500">{messageForm.message.length}/1000 characters</span>
                 </label>
                 <label className="sr-only" aria-hidden="true">Website<input tabIndex={-1} autoComplete="off" name="website" value={messageForm.website} onChange={(event) => setMessageForm((current) => ({ ...current, website: event.target.value }))} /></label>
+                <div className="rounded-xl border border-violet-200 bg-violet-50/70 p-4 text-sm leading-6 text-slate-700 sm:col-span-2 lg:col-span-4">
+                  <h3 className="font-semibold text-violet-900">Privacy notice</h3>
+                  <p className="mt-1">The information you provide is sent to the hospital&apos;s central inquiry email so authorized personnel can review it, contact you if needed, and manually refer it to the appropriate department. The website does not save a separate copy of the inquiry. A hashed network address is used temporarily for rate limiting, and Cloudflare Turnstile performs the security check. For questions about the handling of your information, contact the hospital through its published contact details.</p>
+                  <p className="mt-2 font-medium text-slate-800">{medicalPrivacyNotice}</p>
+                </div>
                 <label className="flex items-start gap-3 text-sm text-slate-700 sm:col-span-2 lg:col-span-4">
-                  <input type="checkbox" required checked={respectfulUseAccepted} onChange={(event) => setRespectfulUseAccepted(event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-700 focus:ring-violet-500" />
-                  <span>I agree to use respectful language and not include sensitive medical information.</span>
+                  <input type="checkbox" required checked={privacyNoticeAccepted} onChange={(event) => setPrivacyNoticeAccepted(event.target.checked)} className="mt-1 h-4 w-4 rounded border-slate-300 text-violet-700 focus:ring-violet-500" />
+                  <span>I have read and agree to the privacy notice.</span>
                 </label>
+                <div className="sm:col-span-2 lg:col-span-4">
+                  {turnstileSiteKey ? <div ref={turnstileContainerRef} /> : <p role="alert" className="text-sm text-red-700">Security verification is not configured. Please contact the hospital.</p>}
+                  {turnstileError ? <p role="alert" className="mt-2 text-sm text-red-700">{turnstileError}</p> : null}
+                </div>
                 {submitError ? <p role="alert" className="sm:col-span-2 lg:col-span-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-800">{submitError}</p> : null}
                 {submitSuccess ? <p role="status" className="sm:col-span-2 lg:col-span-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800">{successMessage}</p> : null}
                 <div className="sm:col-span-2 lg:col-span-4">
-                  <button type="submit" disabled={isSubmitting} className="inline-flex items-center gap-2 rounded-xl bg-violet-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400">
+                  <button type="submit" disabled={isSubmitting || !turnstileSiteKey || !turnstileToken} className="inline-flex items-center gap-2 rounded-xl bg-violet-700 px-5 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400">
                     <Send size={16} aria-hidden="true" />
                     {isSubmitting ? "Sending..." : "Send message"}
                   </button>
-                  <p className="mt-3 text-xs leading-5 text-slate-500">This form is for general inquiries only. Staff can forward messages but cannot provide medical advice through this page.</p>
+                  <p className="mt-3 text-xs leading-5 text-slate-500">This form is for general inquiries only. The hospital does not provide medical advice through this form.</p>
                 </div>
               </div>
             </form>

@@ -59,7 +59,7 @@ export default function TransparencySealPage() {
       subtitle="Official transparency documents and institutional information published by Casiguran District Hospital."
       heroImages={heroImages}
     >
-      <section className="mx-auto max-w-6xl px-5 pb-16 sm:px-8">
+      <section className="mx-auto max-w-6xl px-5 pb-16 pt-8 sm:px-8 sm:pt-10">
         {hasSlideshowError ? (
           <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Header photos could not be loaded. The Hospital Development Plan is still available.

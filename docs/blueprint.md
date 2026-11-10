@@ -204,7 +204,7 @@ Kept intentionally minimal: **11 operational tables**, plus `audit_logs` for adm
 - **Purpose:** accountability and incident-response trail for admin changes, authentication events, and denied admin API requests.
 - **Key fields:** `id`, nullable `actor_id` and `actor_email`, `event_type`, `action`, `method`, `route`, `status_code`, `ip_address`, `user_agent`, and `occurred_at`. Request bodies, passwords, and tokens are never recorded.
 - **Publicly visible:** none. Reading the history is restricted to the `admin` role. Migration 0058 makes both request and database audit records append-only for application roles and queues each event for a separate Cloudflare R2 archive.
-- **Monthly review:** the Admin Audit History provides monthly event totals, daily activity, HTTP 401/403/other 4xx/5xx counts, and failed login/MFA counts. Admins can download all request-level audit events for a selected month as a paginated PDF; the on-screen table shows up to the latest 100 events for that month.
+- **Monthly review:** the Admin Audit History provides monthly event totals, daily activity, HTTP 401/403/other 4xx/5xx counts, and failed login/MFA counts. Admins can retrieve a selected month’s records in the UI (defaulting to the newest 100 rows for performance), and can export the full month as a paginated PDF for official record-keeping.
 - **Alerting and archive limits:** five failed login/MFA events or ten denied admin requests from one IP within 15 minutes create an Admin-only in-app alert and a queued email to active Admins. R2 writes use unique keys, SHA-256 metadata, conditional create, and retry; R2 does not support S3 Object Lock, so the archive is separate but not WORM/immutable against someone with delete credentials.
 
 ---
@@ -225,22 +225,25 @@ Split by prefix so auth/rate-limit/CORS policy is easy to reason about per zone:
 ### Admin Audit History
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
-| GET | `/api/admin/audit-logs?month=YYYY-MM` | Return up to 100 newest request audit events for the selected Manila calendar month | required | admin |
+| GET | `/api/admin/audit-logs?month=YYYY-MM&limit=100` | Return request audit events for the selected Manila calendar month; defaults to the newest 100 rows and can be raised to 5000 for historical review | required | admin |
 | GET | `/api/admin/audit-logs/stats?month=YYYY-MM` | Return event totals and daily counts for the selected Manila calendar month | required | admin |
-| GET | `/api/admin/audit-logs/export?month=YYYY-MM` | Download all request audit events for the selected month as PDF | required | admin |
+| GET | `/api/admin/audit-logs/export?month=YYYY-MM` | Download the complete request audit events for the selected month as PDF for official record retention | required | admin |
 
-### Contact Messages
+### Public General Inquiries
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
-| POST | `/api/contact` (also `/api/public/contact-messages`) | Submit a categorized Contact Us message | none | — |
-| GET | `/api/admin/contact-messages` | List messages for staff triage | required | editor, admin |
-| GET | `/api/admin/contact-messages/notifications` | Return unread count and up to five recent message previews | required | editor, admin |
-| GET | `/api/admin/contact-messages/assignees` | List active staff for assignment | required | editor, admin |
-| PUT | `/api/admin/contact-messages/:id` | Update assignment, action, remarks, status, or archive state | required | editor, admin |
+| POST | `/api/contact` (also `/api/public/contact-messages`) | Submit a general inquiry after server-side validation, rate limiting, and Turnstile verification; deliver to the central hospital email | none | — |
 
-The admin header polls the notification summary every 30 seconds while visible and shows unread messages in its bell menu.
+The Admin header polls notifications every 30 seconds while visible. The public Contact form collects only the sender's name, one email or cellphone number, inquiry category, and plain-text message. The backend validates and sanitizes all fields, rejects a honeypot, applies the database-backed limit of one submission per IP per five-minute window, and verifies a Cloudflare Turnstile token (including its action and hostname) before sending. IPs in the shared progressive throttle are HMAC-hashed; inquiry content and raw IP/user-agent are not written to the website database. A successful response is returned only after Gmail SMTP accepts the configured recipient. The email goes to `CONTACT_INQUIRY_EMAIL_TO`, with no automatic departmental forwarding and no website database copy. Authorized hospital staff review and forward inquiries manually from the central mailbox.
 
-Contact submissions are plain text only, validated server-side, limited to one per IP per five-minute window, and store request IP/user agent for audit. Their database-backed progressive cooldown works across API instances. Turnstile is not currently enabled; implement and verify tokens server-side before relying on it for bot protection.
+Use dedicated inquiry settings so the Contact form does not change existing system email: `CONTACT_GMAIL_SMTP_USER` and its Google App Password in `CONTACT_GMAIL_SMTP_APP_PASSWORD`, `CONTACT_INQUIRY_EMAIL_TO` for the official receiving address, and `TURNSTILE_SECRET_KEY` on the backend. Set `NEXT_PUBLIC_TURNSTILE_SITE_KEY` when building the frontend. `CORS_ALLOWED_ORIGINS` must include the website origin because the backend checks the verified Turnstile hostname against that allowlist. Gmail accepting a message does not guarantee final inbox delivery. Before launch, the hospital must publish its responsible privacy contact and approved retention details; the form does not invent these organizational policies.
+
+Migration 0065 deletes legacy database-backed Contact Messages from the active database and drops the unused `contact_messages` table. Managed backups may retain earlier snapshots until their retention period expires.
+
+### Admin Notifications
+| Method | Endpoint | Purpose | Auth | Role |
+|---|---|---|---|---|
+| GET | `/api/admin/notifications` | Return role-appropriate change-request and security notifications | required | editor, admin |
 
 ### FAQs
 | Method | Endpoint | Purpose | Auth | Role |
@@ -252,7 +255,7 @@ Contact submissions are plain text only, validated server-side, limited to one p
 | PATCH | `/api/admin/faqs/:id/archive` | Deactivate FAQ without deleting it | required | editor, admin |
 
 ### Editor Change Approval
-Editor-created or edited public content, including uploads and deletes, is queued as a change request. The existing `admin` role is the Super Admin and can inspect the proposed values, then approve and apply or reject directly from the admin notification bell. Admin actions remain immediate; contact-message triage remains outside this approval flow. Staged uploads are held in a private `cdh-approval-staging` bucket until applied or rejected.
+Editor-created or edited public content, including uploads and deletes, is queued as a change request. The existing `admin` role is the Super Admin and can inspect readable proposed values, then approve and apply or reject from the notification center. Each proposal also queues an email to active Admins; durable retry state prevents missed delivery during temporary SMTP failures. Admins get an overall notification view for pending proposals and security alerts. Editors get notifications only for rejected requests they submitted, including the Admin's reason when provided, with persistent unread/read state. Admin actions remain immediate. Staged uploads are held in a private `cdh-approval-staging` bucket until applied or rejected. Migration 0062 adds Editor rejection read state; migration 0063 adds proposal email delivery state.
 | Method | Endpoint | Purpose | Auth | Role |
 |---|---|---|---|---|
 | GET | `/api/admin/change-requests` | List pending and approved-but-not-applied editor requests | required | admin |
@@ -474,7 +477,6 @@ Your suggested progression holds up well; I've added one sub-phase (4.5) worth c
 ## Still open
 - Hosting target for `frontend`/`backend`
 - Draft → published only, or an approval step before publishing
-- Public contact form (needs outbound email) — yes or no for v1
 - Storage access model — Option A (public bucket) vs Option B (private + signed URLs)
 - The hospital's actual logo file, for eventual production use
 - Actual Hospital History text — page ships with placeholder content until the hospital provides and approves it

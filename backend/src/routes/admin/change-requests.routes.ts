@@ -3,6 +3,8 @@ import {
   approveAdminChangeRequest,
   getAdminChangeRequestFile,
   listAdminChangeRequestsController,
+  listMyRejectedChangeRequestsController,
+  markRejectedAdminChangeRequestRead,
   rejectAdminChangeRequest,
 } from "../../controllers/admin-change-requests.controller";
 import { requireAuth } from "../../middleware/requireAuth";
@@ -14,7 +16,10 @@ import { rejectAdminChangeRequestSchema } from "../../validation/admin-change-re
 
 const router = Router();
 
-router.use(requireAuth, requireRole("admin"));
+router.use(requireAuth);
+router.get("/rejected", requireRole("admin", "editor"), asyncHandler(listMyRejectedChangeRequestsController));
+router.patch("/:id/read", requireRole("admin", "editor"), requireCsrf, asyncHandler(markRejectedAdminChangeRequestRead));
+router.use(requireRole("admin"));
 router.get("/", asyncHandler(listAdminChangeRequestsController));
 router.get("/:id/files/:index", asyncHandler(getAdminChangeRequestFile));
 router.post("/:id/approve", requireCsrf, asyncHandler(approveAdminChangeRequest));

@@ -2,6 +2,8 @@ import type { Request, Response } from "express";
 import {
   downloadStagedChangeRequestFile,
   listAdminChangeRequests,
+  listRejectedChangeRequestNotifications,
+  markRejectedChangeRequestRead,
   reviewAdminChangeRequest,
 } from "../services/admin-change-requests.service";
 import { AppError } from "../utils/AppError";
@@ -13,6 +15,17 @@ function getId(req: Request) {
 
 export async function listAdminChangeRequestsController(_req: Request, res: Response) {
   res.status(200).json({ items: await listAdminChangeRequests() });
+}
+
+export async function listMyRejectedChangeRequestsController(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Not authenticated.", "UNAUTHENTICATED");
+  res.status(200).json({ items: await listRejectedChangeRequestNotifications(req.user.id, 100) });
+}
+
+export async function markRejectedAdminChangeRequestRead(req: Request, res: Response) {
+  if (!req.user) throw new AppError(401, "Not authenticated.", "UNAUTHENTICATED");
+  await markRejectedChangeRequestRead(getId(req), req.user.id);
+  res.status(200).json({ message: "Notification marked as read." });
 }
 
 export async function approveAdminChangeRequest(req: Request, res: Response) {

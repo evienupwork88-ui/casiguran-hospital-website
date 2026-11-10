@@ -34,8 +34,8 @@ async function getApiError(response: Response, fallback: string) {
   return data?.error?.message ?? fallback;
 }
 
-export async function getAdminAuditLogs(month: string): Promise<AuditLogItem[]> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/audit-logs?month=${encodeURIComponent(month)}`, {
+export async function getAdminAuditLogs(month: string, limit = 100): Promise<AuditLogItem[]> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/audit-logs?month=${encodeURIComponent(month)}&limit=${encodeURIComponent(String(limit))}`, {
     credentials: "include",
     cache: "no-store",
   });
@@ -45,6 +45,19 @@ export async function getAdminAuditLogs(month: string): Promise<AuditLogItem[]> 
 
   const data = await response.json();
   return data.items as AuditLogItem[];
+}
+
+export async function getAvailableAuditMonths(): Promise<string[]> {
+  const response = await fetch(`${API_BASE_URL}/api/admin/audit-logs/months`, {
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(await getApiError(response, "Unable to load available audit months."));
+  }
+
+  const data = await response.json();
+  return (data.months ?? []) as string[];
 }
 
 export async function getAdminAuditMonthlyStats(month: string): Promise<AuditMonthlyStats> {

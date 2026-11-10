@@ -58,10 +58,7 @@ const contentSections = [
   {
     title: "Contacts",
     description: "Maintain the CMS-driven address, phone, email, map, Facebook link, office hours, and emergency service settings.",
-    links: [
-      { label: "Manage contact settings", href: "/admin/settings" },
-      { label: "Review messages", href: "/admin/contact-messages" },
-    ],
+    links: [{ label: "Manage contact settings", href: "/admin/settings" }],
   },
 ];
 

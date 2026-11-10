@@ -34,7 +34,16 @@ type AuditLogInput = Omit<AuditLogItem, "id" | "occurredAt">;
 
 const AUDIT_LOG_COLUMNS = "id, actor_id, actor_email, event_type, action, method, route, status_code, ip_address, user_agent, occurred_at";
 const PAGE_SIZE = 1000;
+const DEFAULT_AUDIT_LOG_LIMIT = 100;
+const MAX_AUDIT_LOG_LIMIT = 5000;
 const AUDIT_TIME_ZONE = "Asia/Manila";
+
+function normalizeAuditLogLimit(limit: number | undefined, fallback = DEFAULT_AUDIT_LOG_LIMIT): number {
+  if (limit === undefined || !Number.isFinite(limit)) return fallback;
+  const normalized = Math.trunc(limit);
+  if (normalized <= 0) return fallback;
+  return Math.min(normalized, MAX_AUDIT_LOG_LIMIT);
+}
 
 function mapAuditLog(row: Record<string, unknown>): AuditLogItem {
   return {
@@ -119,20 +128,33 @@ export async function createAuditLog(input: AuditLogInput): Promise<void> {
   }
 }
 
-export async function listAuditLogs(month?: string, limit = 100): Promise<AuditLogItem[]> {
+export async function listAuditLogs(month?: string, limit = DEFAULT_AUDIT_LOG_LIMIT): Promise<AuditLogItem[]> {
+  const safeLimit = normalizeAuditLogLimit(limit, DEFAULT_AUDIT_LOG_LIMIT);
   const { data, error } = await supabase
     .from("audit_logs")
     .select(AUDIT_LOG_COLUMNS)
     .gte("occurred_at", month ? getMonthBounds(month).start : "1970-01-01T00:00:00.000Z")
     .lt("occurred_at", month ? getMonthBounds(month).end : new Date().toISOString())
     .order("occurred_at", { ascending: false })
-    .limit(limit);
+    .limit(safeLimit);
 
   if (error) {
     throw new Error(`Failed to load audit logs: ${error.message}`);
   }
 
   return (data ?? []).map((row) => mapAuditLog(row as Record<string, unknown>));
+}
+
+export async function getAvailableAuditMonths(): Promise<string[]> {
+  const { data, error } = await supabase.rpc("get_available_audit_months");
+  if (error) {
+    throw new Error(`Failed to load available audit months: ${error.message}`);
+  }
+
+  return (data ?? [])
+    .map((row: Record<string, unknown>) => String(row.month ?? ""))
+    .filter((month: string): month is string => Boolean(month))
+    .sort((a: string, b: string) => b.localeCompare(a));
 }
 
 export async function getAuditMonthlyStats(month: string): Promise<AuditMonthlyStats> {

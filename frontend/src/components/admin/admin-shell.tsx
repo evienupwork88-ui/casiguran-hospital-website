@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CircleDollarSign,
@@ -15,7 +15,6 @@ import {
   Images,
   LayoutDashboard,
   LogOut,
-  Mail,
   Menu,
   Newspaper,
   PanelLeftClose,
@@ -25,10 +24,11 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { getAdminContactMessageNotifications, type ContactMessageNotificationSummary } from "@/lib/api/contact-messages";
-import { getMe, type AuthUser } from "@/lib/api/auth";
+import { getAdminNotifications, type AdminNotificationSummary } from "@/lib/api/admin-notifications";
+import { getMe, logout, type AuthUser } from "@/lib/api/auth";
 import { isAdminOnlyPath } from "@/lib/admin-permissions";
-import { approveAndApplyChangeRequest, rejectChangeRequest } from "@/lib/api/admin-change-requests";
+import { approveAndApplyChangeRequest, markRejectedChangeRequestRead, rejectChangeRequest } from "@/lib/api/admin-change-requests";
+import { ChangeRequestSummary } from "@/components/admin/change-request-summary";
 import { useServerClock } from "@/lib/hooks/use-server-clock";
 
 const navigation = [
@@ -42,7 +42,6 @@ const navigation = [
       { href: "/admin/news", label: "News and Updates", icon: Newspaper },
       { href: "/admin/home-gallery", label: "Homepage Gallery", icon: Images },
       { href: "/admin/trainings", label: "Trainings", icon: FileText },
-      { href: "/admin/contact-messages", label: "Contact messages", icon: Mail },
       { href: "/admin/faqs", label: "FAQs", icon: BookOpen },
       {
         label: "Patient Care",
@@ -108,15 +107,19 @@ export function AdminShell({
   isLoggingOut?: boolean;
 }) {
   const pathname = usePathname();
-  const isAuditHistory = pathname.startsWith("/admin/audit-logs");
+  const router = useRouter();
+  const isAuditHistory = pathname.startsWith("/admin/audit-logs") || pathname.endsWith("/audit-logs");
   const [currentRole, setCurrentRole] = useState<AdminUserMeta["role"]>(user?.role);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { time: serverClockTime, error: clockError, sync: syncServerClock } = useServerClock();
-  const [contactNotifications, setContactNotifications] = useState<ContactMessageNotificationSummary | null>(null);
+  const [adminNotifications, setAdminNotifications] = useState<AdminNotificationSummary | null>(null);
   const [notificationError, setNotificationError] = useState("");
   const [approvalBusyId, setApprovalBusyId] = useState<string | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [isShellLoggingOut, setIsShellLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState("");
+  const logoutInProgressRef = useRef(false);
   const [patientCareOpen, setPatientCareOpen] = useState(() =>
     pathname.startsWith("/admin/opd") || pathname.startsWith("/admin/radiology") || pathname.startsWith("/admin/general-medicine") || pathname.startsWith("/admin/obstetrics-and-gynecology") || pathname.startsWith("/admin/pediatrics") || pathname.startsWith("/admin/emergency-department") || pathname.startsWith("/admin/dental") || pathname.startsWith("/admin/medical-social-service") || pathname.startsWith("/admin/nutrition-and-dietetics") || pathname.startsWith("/admin/pharmacy") || pathname.startsWith("/admin/pathology-laboratories") || pathname.startsWith("/admin/nursing-service") || pathname.startsWith("/admin/himd") || pathname.startsWith("/admin/billing-claims"),
   );
@@ -142,12 +145,12 @@ export function AdminShell({
     };
   }, [user?.role]);
 
-  const refreshContactNotifications = useCallback(async () => {
+  const refreshAdminNotifications = useCallback(async () => {
     try {
-      setContactNotifications(await getAdminContactMessageNotifications());
+      setAdminNotifications(await getAdminNotifications());
       setNotificationError("");
     } catch (error) {
-      setNotificationError(error instanceof Error ? error.message : "Unable to load contact message notifications.");
+      setNotificationError(error instanceof Error ? error.message : "Unable to load notifications.");
     }
   }, []);
 
@@ -156,10 +159,10 @@ export function AdminShell({
     setNotificationError("");
     try {
       await approveAndApplyChangeRequest(id);
-      await refreshContactNotifications();
+      await refreshAdminNotifications();
     } catch (error) {
       setNotificationError(error instanceof Error ? error.message : "Unable to apply the approved change.");
-      await refreshContactNotifications();
+      await refreshAdminNotifications();
     } finally {
       setApprovalBusyId(null);
     }
@@ -172,7 +175,7 @@ export function AdminShell({
     setNotificationError("");
     try {
       await rejectChangeRequest(id, reason);
-      await refreshContactNotifications();
+      await refreshAdminNotifications();
     } catch (error) {
       setNotificationError(error instanceof Error ? error.message : "Unable to reject the change request.");
     } finally {
@@ -180,20 +183,30 @@ export function AdminShell({
     }
   }
 
+  async function handleMarkRejectedRequestRead(id: string) {
+    try {
+      await markRejectedChangeRequestRead(id);
+      await refreshAdminNotifications();
+      window.dispatchEvent(new Event("admin-notifications-updated"));
+    } catch (error) {
+      setNotificationError(error instanceof Error ? error.message : "Unable to update the notification.");
+    }
+  }
+
   useEffect(() => {
-    void refreshContactNotifications();
-    const interval = window.setInterval(() => void refreshContactNotifications(), 30_000);
+    void refreshAdminNotifications();
+    const interval = window.setInterval(() => void refreshAdminNotifications(), 30_000);
     const refreshWhenVisible = () => {
-      if (document.visibilityState === "visible") void refreshContactNotifications();
+      if (document.visibilityState === "visible") void refreshAdminNotifications();
     };
     document.addEventListener("visibilitychange", refreshWhenVisible);
-    window.addEventListener("contact-messages-updated", refreshWhenVisible);
+    window.addEventListener("admin-notifications-updated", refreshWhenVisible);
     return () => {
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", refreshWhenVisible);
-      window.removeEventListener("contact-messages-updated", refreshWhenVisible);
+      window.removeEventListener("admin-notifications-updated", refreshWhenVisible);
     };
-  }, [refreshContactNotifications]);
+  }, [refreshAdminNotifications]);
 
   useEffect(() => {
     if (!isNotificationsOpen) return;
@@ -251,9 +264,37 @@ export function AdminShell({
   }, [mobileOpen]);
 
   const totalNotifications =
-    (contactNotifications?.unreadCount ?? 0) +
-    (contactNotifications?.pendingRequestCount ?? 0) +
-    (contactNotifications?.securityAlertCount ?? 0);
+    (adminNotifications?.pendingRequestCount ?? 0) +
+    (adminNotifications?.securityAlertCount ?? 0) +
+    (adminNotifications?.rejectedChangeRequestUnreadCount ?? 0);
+
+  async function handleLogout() {
+    if (logoutInProgressRef.current) return;
+    logoutInProgressRef.current = true;
+    setLogoutError("");
+    if (onLogout) {
+      try {
+        await onLogout();
+      } catch (error) {
+        setLogoutError(error instanceof Error ? error.message : "Unable to log out. Please try again.");
+      } finally {
+        logoutInProgressRef.current = false;
+      }
+      return;
+    }
+
+    setIsShellLoggingOut(true);
+    try {
+      await logout();
+      router.replace("/admin/login");
+      router.refresh();
+    } catch (error) {
+      setLogoutError(error instanceof Error ? error.message : "Unable to log out. Please try again.");
+    } finally {
+      logoutInProgressRef.current = false;
+      setIsShellLoggingOut(false);
+    }
+  }
 
   return (
     <div className="admin-theme min-h-dvh overflow-x-hidden bg-[#f5f3ff] text-slate-900">
@@ -465,28 +506,20 @@ export function AdminShell({
 
               <button
                 type="button"
-                onClick={async () => {
-                  if (onLogout) {
-                    await onLogout();
-                    return;
-                  }
-
-                  if (typeof window !== "undefined") {
-                    window.location.href = "/admin/login";
-                  }
-                }}
-                disabled={isLoggingOut}
+                onClick={() => void handleLogout()}
+                disabled={isLoggingOut || isShellLoggingOut}
                 className={`mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-200 to-violet-100 px-3 py-2.5 text-sm font-semibold text-violet-900 shadow-[0_10px_24px_rgba(196,181,253,0.25)] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60 ${isCollapsed ? "lg:px-2" : ""}`}
               >
                 <LogOut size={16} />
-                {!isCollapsed && <span>{isLoggingOut ? "Logging out..." : "Logout"}</span>}
+                {!isCollapsed && <span>{isLoggingOut || isShellLoggingOut ? "Logging out..." : "Logout"}</span>}
               </button>
+              {logoutError && !isCollapsed ? <p role="alert" className="mt-2 text-xs text-red-200">{logoutError}</p> : null}
             </div>
           </div>
         </aside>
 
-        <main className={`min-h-0 min-w-0 flex-1 bg-[#f5f3ff] ${isAuditHistory ? "overflow-hidden" : "overflow-y-auto"}`}>
-          <div className={`mx-auto min-w-0 max-w-7xl px-3 pb-8 pt-4 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6 ${isAuditHistory ? "flex h-full flex-col overflow-hidden" : ""}`}>
+        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f5f3ff]">
+          <div className="mx-auto min-w-0 w-full max-w-none px-3 pb-8 pt-4 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
             <header className={`relative z-50 rounded-[24px] border border-violet-200 bg-white/90 p-4 shadow-[0_18px_45px_rgba(91,33,182,0.05)] backdrop-blur-sm sm:p-5 ${isAuditHistory ? "mb-5 shrink-0" : "mb-8"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex min-w-0 items-center gap-3">
@@ -555,37 +588,39 @@ export function AdminShell({
                             <p className="mt-1 text-xs text-slate-500">
                               {totalNotifications
                                 ? [
-                                  contactNotifications?.pendingRequestCount ? `${contactNotifications.pendingRequestCount} change request${contactNotifications.pendingRequestCount === 1 ? "" : "s"}` : "",
-                                  contactNotifications?.unreadCount ? `${contactNotifications.unreadCount} unread message${contactNotifications.unreadCount === 1 ? "" : "s"}` : "",
-                                  contactNotifications?.securityAlertCount ? `${contactNotifications.securityAlertCount} security alert${contactNotifications.securityAlertCount === 1 ? "" : "s"}` : "",
+                                  adminNotifications?.pendingRequestCount ? `${adminNotifications.pendingRequestCount} change request${adminNotifications.pendingRequestCount === 1 ? "" : "s"}` : "",
+                                  adminNotifications?.securityAlertCount ? `${adminNotifications.securityAlertCount} security alert${adminNotifications.securityAlertCount === 1 ? "" : "s"}` : "",
+                                  adminNotifications?.rejectedChangeRequestUnreadCount ? `${adminNotifications.rejectedChangeRequestUnreadCount} rejected request${adminNotifications.rejectedChangeRequestUnreadCount === 1 ? "" : "s"}` : "",
                                 ].filter(Boolean).join(" · ")
                                 : "You’re all caught up"}
                             </p>
                           </div>
-                          <Link href="/admin/contact-messages" onClick={() => setIsNotificationsOpen(false)} className="shrink-0 text-xs font-semibold text-violet-700 hover:text-violet-900">
+                          <Link href="/admin/notifications" onClick={() => setIsNotificationsOpen(false)} className="shrink-0 text-xs font-semibold text-violet-700 hover:text-violet-900">
                             View all
                           </Link>
                         </div>
                         {notificationError ? (
                           <div role="alert" className="m-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">
                             <p>{notificationError}</p>
-                            <button type="button" onClick={() => void refreshContactNotifications()} className="mt-2 font-semibold underline">Try again</button>
+                            <button type="button" onClick={() => void refreshAdminNotifications()} className="mt-2 font-semibold underline">Try again</button>
                           </div>
-                        ) : contactNotifications === null ? (
+                        ) : adminNotifications === null ? (
                           <p role="status" className="px-4 py-5 text-sm text-slate-500">Loading notifications...</p>
                         ) : (
                           <div className="max-h-[min(70vh,36rem)] overflow-y-auto">
-                          {currentRole === "admin" && (!contactNotifications.auditArchiveEnabled || contactNotifications.pendingArchiveCount > 0 || !contactNotifications.securityAlertEmailEnabled || contactNotifications.pendingEmailCount > 0) ? (
+                          {currentRole === "admin" && (!adminNotifications.auditArchiveEnabled || adminNotifications.pendingArchiveCount > 0 || !adminNotifications.securityAlertEmailEnabled || adminNotifications.pendingEmailCount > 0 || !adminNotifications.approvalEmailEnabled || adminNotifications.pendingApprovalEmailCount > 0) ? (
                             <div role="status" className="space-y-1 border-b border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-                              {!contactNotifications.auditArchiveEnabled ? <p>R2 audit archive is disabled. Configure the backend R2 settings to enable it.</p> : null}
-                              {contactNotifications.pendingArchiveCount > 0 ? <p>{contactNotifications.pendingArchiveCount} audit event{contactNotifications.pendingArchiveCount === 1 ? "" : "s"} awaiting archive upload or retry.</p> : null}
-                              {!contactNotifications.securityAlertEmailEnabled ? <p>Security alert email is not configured; alerts remain available in the Admin console.</p> : null}
-                              {contactNotifications.pendingEmailCount > 0 ? <p>{contactNotifications.pendingEmailCount} security alert email{contactNotifications.pendingEmailCount === 1 ? "" : "s"} queued or retrying.</p> : null}
+                              {!adminNotifications.auditArchiveEnabled ? <p>R2 audit archive is disabled. Configure the backend R2 settings to enable it.</p> : null}
+                              {adminNotifications.pendingArchiveCount > 0 ? <p>{adminNotifications.pendingArchiveCount} audit event{adminNotifications.pendingArchiveCount === 1 ? "" : "s"} awaiting archive upload or retry.</p> : null}
+                              {!adminNotifications.securityAlertEmailEnabled ? <p>Security alert email is not configured; alerts remain available in the Admin console.</p> : null}
+                              {adminNotifications.pendingEmailCount > 0 ? <p>{adminNotifications.pendingEmailCount} security alert email{adminNotifications.pendingEmailCount === 1 ? "" : "s"} queued or retrying.</p> : null}
+                              {!adminNotifications.approvalEmailEnabled ? <p>Editor approval email is not configured; change requests remain in the Admin console.</p> : null}
+                              {adminNotifications.pendingApprovalEmailCount > 0 ? <p>{adminNotifications.pendingApprovalEmailCount} Editor approval email{adminNotifications.pendingApprovalEmailCount === 1 ? "" : "s"} queued or retrying.</p> : null}
                             </div>
                           ) : null}
-                          {contactNotifications.securityAlerts.length ? (
+                          {adminNotifications.securityAlerts.length ? (
                             <ul className="divide-y divide-red-100 border-b border-slate-100 bg-red-50/60">
-                              {contactNotifications.securityAlerts.map((alert) => (
+                              {adminNotifications.securityAlerts.map((alert) => (
                                 <li key={alert.id} className="px-4 py-3">
                                   <div className="flex items-start gap-3">
                                     <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${alert.severity === "high" ? "bg-red-600" : "bg-amber-500"}`} aria-hidden="true" />
@@ -602,9 +637,30 @@ export function AdminShell({
                               ))}
                             </ul>
                           ) : null}
-                          {contactNotifications.changeRequests.length ? (
+                          {currentRole === "editor" && adminNotifications.rejectedChangeRequests.length ? (
+                            <ul className="divide-y divide-red-100 border-b border-slate-100 bg-red-50/50">
+                              {adminNotifications.rejectedChangeRequests.map((item) => (
+                                <li key={item.id} className="px-4 py-3">
+                                  <div className="flex items-start gap-3">
+                                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${item.requesterReadAt ? "bg-slate-300" : "bg-red-600"}`} aria-hidden="true" />
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm font-semibold text-slate-900">Request rejected · {item.resource}</p>
+                                      <p className="mt-1 text-xs text-slate-600">{item.action} · {formatNotificationTime(item.decidedAt ?? item.createdAt)}</p>
+                                      {item.rejectionReason ? <p className="mt-2 text-xs leading-5 text-slate-700">Reason: {item.rejectionReason}</p> : null}
+                                      {!item.requesterReadAt ? (
+                                        <button type="button" onClick={() => void handleMarkRejectedRequestRead(item.id)} className="mt-2 text-xs font-semibold text-violet-800 hover:underline">
+                                          Mark as read
+                                        </button>
+                                      ) : <p className="mt-2 text-[11px] text-slate-500">Read</p>}
+                                    </div>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {adminNotifications.changeRequests.length ? (
                             <ul className="divide-y divide-amber-100 border-b border-slate-100 bg-amber-50/50">
-                              {contactNotifications.changeRequests.map((item) => (
+                              {adminNotifications.changeRequests.map((item) => (
                                 <li key={item.id} className="px-4 py-3">
                                   <div className="flex items-start gap-3">
                                     <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden="true" />
@@ -613,8 +669,7 @@ export function AdminShell({
                                       <p className="mt-0.5 text-xs text-slate-600">Requested by {item.requesterName} · {formatNotificationTime(item.createdAt)}</p>
                                       <details className="mt-2">
                                         <summary className="cursor-pointer text-xs font-semibold text-violet-800">Review proposed change</summary>
-                                        <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-white p-2 text-[10px] text-slate-700">{JSON.stringify(item.requestBody, null, 2)}</pre>
-                                        {item.files.length ? <ul className="mt-2 space-y-1 text-xs text-slate-600">{item.files.map((file, index) => <li key={`${file.fieldName}-${index}`}>{file.fieldName}: {file.originalName} ({Math.ceil(file.size / 1024)} KB)</li>)}</ul> : null}
+                                        <ChangeRequestSummary item={item} />
                                       </details>
                                       {item.applicationError ? <p role="alert" className="mt-2 text-xs text-red-700">{item.applicationError}</p> : null}
                                       <div className="mt-3 flex flex-wrap gap-2">
@@ -629,30 +684,12 @@ export function AdminShell({
                               ))}
                             </ul>
                           ) : null}
-                          {contactNotifications.items.length ? (
-                          <ul className="divide-y divide-slate-100">
-                            {contactNotifications.items.map((item) => (
-                              <li key={item.id}>
-                                <Link href="/admin/contact-messages" onClick={() => setIsNotificationsOpen(false)} className="block px-4 py-3 transition hover:bg-violet-50">
-                                  <span className="flex items-start gap-3">
-                                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-red-500" aria-hidden="true" />
-                                    <span className="min-w-0 flex-1">
-                                      <span className="block truncate text-sm font-semibold text-slate-800">{item.subject}</span>
-                                      <span className="mt-0.5 block truncate text-xs text-slate-600">From {item.name}</span>
-                                      <span className="mt-1 block text-[11px] text-slate-400">{formatNotificationTime(item.createdAt)}</span>
-                                    </span>
-                                  </span>
-                                </Link>
-                              </li>
-                            ))}
-                          </ul>
-                          ) : null}
-                          {!contactNotifications.securityAlerts.length && !contactNotifications.changeRequests.length && !contactNotifications.items.length ? (
+                          {!adminNotifications.securityAlerts.length && !adminNotifications.changeRequests.length && !adminNotifications.rejectedChangeRequests.length ? (
                           <p className="px-4 py-5 text-sm text-slate-500">No new notifications.</p>
                           ) : null}
                           </div>
                         )}
-                        <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500">New messages are checked automatically every 30 seconds.</div>
+                        <div className="border-t border-slate-100 bg-slate-50 px-4 py-3 text-[11px] text-slate-500">Notifications are checked automatically every 30 seconds.</div>
                       </section>
                     ) : null}
                   </div>
