@@ -6,10 +6,15 @@ import { PublicShell } from "@/components/public/site-shell";
 import { getPublicCitizensCharterSlideshow } from "@/lib/api/citizens-charter-slideshow";
 import { getPublicNews, type NewsItem } from "@/lib/api/news";
 import { getPublicAnnouncements, type AnnouncementItem } from "@/lib/api/announcements";
+import { getPublicEvents, type EventItem } from "@/lib/api/events";
+import { LatestVideos, type LatestVideoItem } from "@/components/public/latest-videos";
+import { FacebookPostEmbed } from "@/components/public/facebook-post-embed";
+import { getFacebookEmbedUrl } from "@/lib/facebook-embed";
 
 type FeedItem =
   | { type: "news"; item: NewsItem; date: string }
-  | { type: "announcement"; item: AnnouncementItem; date: string };
+  | { type: "announcement"; item: AnnouncementItem; date: string }
+  | { type: "event"; item: EventItem; date: string };
 
 const months = [
   "January",
@@ -36,6 +41,7 @@ function formatDate(dateStr: string | null | undefined): string {
 export default function NewsPage() {
   const [news, setNews] = useState<NewsItem[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
+  const [events, setEvents] = useState<EventItem[]>([]);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -46,9 +52,14 @@ export default function NewsPage() {
   useEffect(() => {
     async function loadNews() {
       try {
-        const [newsItems, announcementItems] = await Promise.all([getPublicNews(), getPublicAnnouncements()]);
+        const [newsItems, announcementItems, eventItems] = await Promise.all([
+          getPublicNews(),
+          getPublicAnnouncements(),
+          getPublicEvents(),
+        ]);
         setNews(newsItems);
         setAnnouncements(announcementItems);
+        setEvents(eventItems);
       } catch {
         setHasError(true);
       } finally {
@@ -77,6 +88,7 @@ export default function NewsPage() {
   const feed: FeedItem[] = [
     ...news.map((item) => ({ type: "news" as const, item, date: item.displayDate || item.publishedAt || item.createdAt })),
     ...announcements.map((item) => ({ type: "announcement" as const, item, date: item.displayDate || item.publishAt || item.createdAt })),
+    ...events.map((item) => ({ type: "event" as const, item, date: item.startAt })),
   ].sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
   const currentYear = Math.max(2026, new Date().getFullYear());
   const years = Array.from({ length: currentYear - 2026 + 1 }, (_, index) => currentYear - index);
@@ -92,14 +104,28 @@ export default function NewsPage() {
   const visibleFeed = selectedMonth === null
     ? selectedFeed
     : selectedFeed.filter((entry) => Number(entry.date.slice(5, 7)) === selectedMonth);
+  const latestVideos: LatestVideoItem[] = feed
+    .filter((entry) => getFacebookEmbedUrl(entry.item.externalUrl))
+    .slice(0, 1)
+    .map((entry) => {
+      const body = entry.type === "event" ? entry.item.description ?? "" : entry.item.body;
+      return {
+        id: `${entry.type}-${entry.item.id}`,
+        title: entry.item.title,
+        description: entry.item.excerpt || (body.length > 180 ? `${body.slice(0, 180)}...` : body),
+        date: entry.date,
+        url: entry.item.externalUrl!,
+      };
+    });
 
   return (
     <PublicShell
       title="News and Updates"
-      subtitle="Official hospital news, announcements, and public advisories."
+      subtitle="Official hospital news, events, announcements, and public advisories."
       heroImages={heroImages}
     >
       <section className="mx-auto max-w-6xl px-6 pb-16">
+        {!isLoading && !hasError ? <LatestVideos videos={latestVideos} /> : null}
         {hasSlideshowError ? (
           <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Header photos could not be loaded. News and updates are still available.
@@ -186,14 +212,18 @@ export default function NewsPage() {
               <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
                 {visibleFeed.map((entry) => {
                   const isNews = entry.type === "news";
+                  const isAnnouncement = entry.type === "announcement";
                   const title = entry.item.title;
-                  const body = entry.item.body;
+                  const body = entry.type === "event" ? entry.item.description ?? "" : entry.item.body;
                   const preview = entry.item.excerpt || (body.length > 140 ? `${body.slice(0, 140)}...` : body);
                   const externalUrl = entry.item.externalUrl;
+                  const facebookEmbedUrl = getFacebookEmbedUrl(externalUrl);
                   const coverImageUrl = entry.item.coverImageUrl;
                   const card = (
                     <>
-                      {coverImageUrl ? (
+                      {facebookEmbedUrl && externalUrl ? (
+                        <FacebookPostEmbed postUrl={externalUrl} title={title} />
+                      ) : coverImageUrl ? (
                         <div className="bg-slate-100">
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img src={coverImageUrl} alt={`${title} cover`} className="block h-auto w-full" loading="lazy" />
@@ -203,16 +233,16 @@ export default function NewsPage() {
                       )}
                       <div className="border-t-2 border-violet-100 p-6">
                         <div className="flex items-center justify-between gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-violet-700">
-                          <span>{isNews ? "News" : "Update"}</span>
+                          <span>{isNews ? "News" : isAnnouncement ? "Update" : "Event"}</span>
                           <span>{formatDate(entry.date)}</span>
                         </div>
                         <h2 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{title}</h2>
                         <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">{preview}</p>
-                        {externalUrl ? (
+                        {externalUrl && !facebookEmbedUrl ? (
                           <span className="mt-5 inline-flex text-sm font-semibold text-violet-700">
                             Open original post ↗
                           </span>
-                        ) : !isNews && entry.item.priority === "urgent" ? (
+                        ) : isAnnouncement && entry.item.priority === "urgent" ? (
                           <span className="mt-4 inline-flex rounded-full bg-red-100 px-2.5 py-1 text-xs font-semibold uppercase tracking-wider text-red-700">Urgent</span>
                         ) : null}
                       </div>
@@ -227,7 +257,7 @@ export default function NewsPage() {
                     >
                       {card}
                     </Link>
-                  ) : externalUrl ? (
+                  ) : externalUrl && !facebookEmbedUrl ? (
                     <a
                       key={`${entry.type}-${entry.item.id}`}
                       href={externalUrl}
@@ -238,7 +268,7 @@ export default function NewsPage() {
                       {card}
                     </a>
                   ) : (
-                    <article key={`announcement-${entry.item.id}`} className="overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)]">
+                    <article key={`${entry.type}-${entry.item.id}`} className="overflow-hidden border border-slate-200 bg-white shadow-[0_14px_30px_rgba(37,27,88,0.05)]">
                       {card}
                     </article>
                   );

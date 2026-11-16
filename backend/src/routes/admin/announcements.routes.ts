@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { coverImageUpload } from "../../middleware/coverImageUpload";
 import {
   createAdminAnnouncement,
   deleteAdminAnnouncement,
@@ -17,8 +18,8 @@ const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
 router.get("/", asyncHandler(listAdminAnnouncements));
-router.post("/", requireCsrf, validateBody(createAnnouncementSchema), requireChangeApproval("Announcements", "Create"), asyncHandler(createAdminAnnouncement));
-router.put("/:id", requireCsrf, validateBody(updateAnnouncementSchema), requireChangeApproval("Announcements", "Update"), asyncHandler(updateAdminAnnouncement));
+router.post("/", requireCsrf, coverImageUpload.single("coverImage"), validateBody(createAnnouncementSchema), requireChangeApproval("Announcements", "Create"), asyncHandler(createAdminAnnouncement));
+router.put("/:id", requireCsrf, coverImageUpload.single("coverImage"), validateBody(updateAnnouncementSchema), requireChangeApproval("Announcements", "Update"), asyncHandler(updateAdminAnnouncement));
 router.delete("/:id", requireRole("admin", "editor"), requireCsrf, requireChangeApproval("Announcements", "Delete"), asyncHandler(deleteAdminAnnouncement));
 
 export default router;

@@ -1,6 +1,6 @@
 import "dotenv/config";
 import { createClient } from "@supabase/supabase-js";
-import bcrypt from "bcrypt";
+import { hashPassword } from "../../src/services/password-hash.service";
 
 /**
  * One-time (or occasional) script to create/update the seeded admin
@@ -29,8 +29,6 @@ const ADMIN_SEED_MIDDLE_NAME = process.env.ADMIN_SEED_MIDDLE_NAME ?? "";
 const ADMIN_SEED_LAST_NAME = process.env.ADMIN_SEED_LAST_NAME;
 const ADMIN_SEED_NAME_EXTENSION = process.env.ADMIN_SEED_NAME_EXTENSION ?? "";
 
-const BCRYPT_SALT_ROUNDS = 12;
-
 function requireEnv(name: string, value: string | undefined): string {
   if (!value) {
     console.error(`Missing required env var: ${name}`);
@@ -56,7 +54,7 @@ async function main() {
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   console.log(`Connecting to Supabase at ${supabaseUrl} ...`);
-  const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
+  const passwordHash = await hashPassword(password);
 
   const { data, error } = await supabase
     .from("admin_users")

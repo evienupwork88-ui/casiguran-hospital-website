@@ -9,7 +9,7 @@ const timeZone = "Asia/Manila";
 const weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const weekdaysCompact = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-type CalendarItem = Pick<EventItem, "id" | "title" | "description" | "location" | "startAt" | "endAt" | "excerpt" | "externalUrl"> & {
+type CalendarItem = Pick<EventItem, "id" | "title" | "description" | "location" | "startAt" | "endAt" | "excerpt" | "externalUrl" | "coverImageUrl"> & {
   isHoliday?: boolean;
 };
 
@@ -126,6 +126,7 @@ export function HomeEventsCalendar({
       endAt: null,
       excerpt: null,
       externalUrl: null,
+      coverImageUrl: null,
       isHoliday: true,
     })),
   ], [events, publicHolidays]);
@@ -279,6 +280,17 @@ export function HomeEventsCalendar({
               const endTime = formatTime(event.endAt);
               return (
                 <li key={event.id} className="rounded-xl border border-violet-100 bg-white p-4 shadow-sm">
+                  {event.coverImageUrl ? (
+                    <div className="mb-3 overflow-hidden rounded-lg bg-slate-100">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={event.coverImageUrl}
+                        alt={`${event.title} cover`}
+                        className="block h-auto max-h-80 w-full object-contain"
+                        loading="lazy"
+                      />
+                    </div>
+                  ) : null}
                   <h4 className="font-semibold text-slate-900">{event.title}</h4>
                   {event.isHoliday ? <p className="mt-1 text-xs font-medium text-amber-700">Philippine public holiday · Google Calendar</p> : null}
                   {event.excerpt || event.description ? (

@@ -4,7 +4,7 @@ import { requireSession } from "../middleware/requireAuth";
 import { requireCsrf } from "../middleware/requireCsrf";
 import { validateBody } from "../middleware/validate";
 import { completePasswordResetSchema, loginSchema, mfaCodeSchema, requestPasswordResetSchema } from "../validation/auth.schema";
-import { passwordResetRateLimiter } from "../middleware/rateLimit";
+import { passwordResetCompletionRateLimiter, passwordResetRateLimiter } from "../middleware/rateLimit";
 import { asyncHandler } from "../utils/asyncHandler";
 
 const router = Router();
@@ -14,7 +14,7 @@ const router = Router();
 // requireCsrf.ts for why login is deliberately excluded).
 router.post("/login", validateBody(loginSchema), asyncHandler(login));
 router.post("/forgot-password", validateBody(requestPasswordResetSchema), passwordResetRateLimiter, asyncHandler(forgotPassword));
-router.post("/reset-password", validateBody(completePasswordResetSchema), passwordResetRateLimiter, asyncHandler(resetPassword));
+router.post("/reset-password", validateBody(completePasswordResetSchema), passwordResetCompletionRateLimiter, asyncHandler(resetPassword));
 
 // Requires an existing session AND a matching CSRF header, since this
 // is a state-changing request authenticated by cookie.

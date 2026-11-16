@@ -7,6 +7,7 @@ import type { UpdatePathologyAndLaboratoriesInput } from "../validation/patholog
 
 type UploadedPathologyAndLaboratoriesImage = { buffer: Buffer; originalname: string; mimetype: string; size: number };
 type PathologyAndLaboratoriesHighlight = { title: string; description: string };
+type PathologyAndLaboratoriesServiceGroup = { category: string; services: string[] };
 type PathologyAndLaboratoriesSchedule = { clinic: string; days: string; hours: string; notes: string };
 
 export type PathologyAndLaboratoriesContentRecord = {
@@ -15,6 +16,7 @@ export type PathologyAndLaboratoriesContentRecord = {
   organizationalChartImageUrl: string | null;
   generalInformation: string;
   highlights: PathologyAndLaboratoriesHighlight[];
+  laboratoryServiceGroups: PathologyAndLaboratoriesServiceGroup[];
   clinicSchedule: PathologyAndLaboratoriesSchedule[];
   organizationalStructureDescription: string;
   updatedAt: string;
@@ -28,7 +30,7 @@ const imageFormats = {
   webp: { mime: "image/webp", signature: (buffer: Buffer) => buffer.length >= 12 && buffer.toString("ascii", 0, 4) === "RIFF" && buffer.toString("ascii", 8, 12) === "WEBP" },
 } as const;
 
-const pathologyLaboratoriesColumns = "title, cover_image_paths, organizational_chart_image_path, general_information, highlights, clinic_schedule, organizational_structure_description, updated_at, updated_by";
+const pathologyLaboratoriesColumns = "title, cover_image_paths, organizational_chart_image_path, general_information, highlights, laboratory_service_groups, clinic_schedule, organizational_structure_description, updated_at, updated_by";
 
 async function mapPathologyAndLaboratoriesRow(row: any): Promise<PathologyAndLaboratoriesContentRecord> {
   const coverImages = await Promise.all(
@@ -50,6 +52,7 @@ async function mapPathologyAndLaboratoriesRow(row: any): Promise<PathologyAndLab
     organizationalChartImageUrl,
     generalInformation: row.general_information,
     highlights: row.highlights ?? [],
+    laboratoryServiceGroups: row.laboratory_service_groups ?? [],
     clinicSchedule: row.clinic_schedule ?? [],
     organizationalStructureDescription: row.organizational_structure_description ?? "",
     updatedAt: row.updated_at,
@@ -74,6 +77,7 @@ export async function updatePathologyAndLaboratoriesContent(input: UpdatePatholo
       title: input.title,
       general_information: input.generalInformation,
       highlights: input.highlights,
+      laboratory_service_groups: input.laboratoryServiceGroups,
       clinic_schedule: input.clinicSchedule,
       organizational_structure_description: input.organizationalStructureDescription,
       updated_by: updatedById,

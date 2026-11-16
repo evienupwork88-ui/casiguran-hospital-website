@@ -47,13 +47,13 @@ export async function createAdminAnnouncement(req: Request, res: Response) {
     throw new AppError(401, "Not authenticated", "UNAUTHENTICATED");
   }
 
-  const announcement = await createAnnouncement(input, req.user.id);
+  const announcement = await createAnnouncement(input, req.user.id, req.file);
   res.status(201).json({ item: announcement });
 }
 
 export async function updateAdminAnnouncement(req: Request, res: Response) {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const announcement = await updateAnnouncement(id, req.body as UpdateAnnouncementInput);
+  const announcement = await updateAnnouncement(id, req.body as UpdateAnnouncementInput, req.file);
   res.status(200).json({ item: announcement });
 }
 

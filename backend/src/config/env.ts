@@ -34,6 +34,10 @@ const r2Configuration = [r2AccountId, r2AccessKeyId, r2SecretAccessKey, r2Bucket
 if (r2Configuration.some(Boolean) && !r2Configuration.every(Boolean)) {
   throw new Error("R2 audit archive requires R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, and R2_BUCKET_NAME.");
 }
+const corsAllowedOrigins = envString("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 export const env = {
   nodeEnv,
@@ -42,10 +46,8 @@ export const env = {
   trustProxyHops: envNumber("TRUST_PROXY_HOPS", 0),
   timezone: envString("TIMEZONE", "Asia/Manila"),
 
-  corsAllowedOrigins: envString("CORS_ALLOWED_ORIGINS", "http://localhost:3000")
-    .split(",")
-    .map((origin) => origin.trim())
-    .filter(Boolean),
+  corsAllowedOrigins,
+  frontendUrl: envString("FRONTEND_URL", corsAllowedOrigins[0] ?? "http://localhost:3000"),
 
   supabaseUrl: requireEnv("SUPABASE_URL"),
   supabaseServiceRoleKey: requireEnv("SUPABASE_SERVICE_ROLE_KEY"),

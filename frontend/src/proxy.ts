@@ -38,7 +38,9 @@ async function proxyRequest(request: NextRequest) {
 }
 
 function isPublicAdminRoute(pathname: string) {
-  return pathname === "/admin/login" || pathname === "/admin/forgot-password";
+  return pathname === "/admin/login"
+    || pathname === "/admin/forgot-password"
+    || pathname === "/admin/reset-password";
 }
 
 async function verifyAdminSession(request: NextRequest, internalPath: string): Promise<NextResponse | null> {

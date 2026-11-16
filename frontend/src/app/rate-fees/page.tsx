@@ -16,6 +16,10 @@ import {
 
 const categories = Object.keys(RATE_FEE_CATEGORIES) as RateFeeCategory[];
 
+function isRateFeeCategory(value: string | null): value is RateFeeCategory {
+  return value !== null && categories.some((category) => category === value);
+}
+
 function FeeTable({ category, items }: { category: RateFeeCategory; items: RateFeeItem[] }) {
   const columns = RATE_FEE_CATEGORIES[category].columns;
   const groups = new Map<string, RateFeeItem[]>();
@@ -65,6 +69,20 @@ export default function RateFeesPage() {
   const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
+    const requestedCategory = new URLSearchParams(window.location.search).get("category");
+    if (isRateFeeCategory(requestedCategory)) {
+      setActiveCategory(requestedCategory);
+      setActiveSection(ALL_RATE_FEE_SECTIONS);
+    }
+  }, []);
+
+  useEffect(() => {
+    const requestedCategory = new URLSearchParams(window.location.search).get("category");
+    if (requestedCategory !== activeCategory || window.location.hash !== "#rate-fees-content") return;
+    document.getElementById("rate-fees-content")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [activeCategory]);
+
+  useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
@@ -98,7 +116,7 @@ export default function RateFeesPage() {
 
   return (
     <PublicShell title="Rate and Fees" subtitle="View published rates for hospital services, medicines, and records." heroImages={heroImages}>
-      <section className="mx-auto max-w-6xl px-6 pb-16">
+      <section id="rate-fees-content" className="mx-auto max-w-6xl scroll-mt-28 px-6 pb-16">
         {hasSlideshowError ? (
           <p role="alert" className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
             Header photos could not be loaded. Rate and fee lists are still available.

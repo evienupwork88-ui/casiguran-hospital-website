@@ -5,6 +5,11 @@ const highlightSchema = z.object({
   description: z.string().trim().max(1000),
 });
 
+const radiologyServiceGroupSchema = z.object({
+  category: z.string().trim().min(1, "Service category is required").max(100),
+  services: z.array(z.string().trim().min(1, "Service name is required").max(200)).max(100),
+});
+
 const clinicScheduleSchema = z.object({
   clinic: z.string().trim().min(1, "Service name is required").max(200),
   days: z.string().trim().max(200),
@@ -16,6 +21,7 @@ export const updateRadiologySchema = z.object({
   title: z.string().trim().min(1, "Page title is required").max(200),
   generalInformation: z.string().trim().max(10000),
   highlights: z.array(highlightSchema).max(30),
+  radiologyServiceGroups: z.array(radiologyServiceGroupSchema).max(10),
   clinicSchedule: z.array(clinicScheduleSchema).max(100),
   organizationalStructureDescription: z.string().trim().max(3000),
 });

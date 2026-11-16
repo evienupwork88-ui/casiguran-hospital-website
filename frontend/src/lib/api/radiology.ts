@@ -5,6 +5,11 @@ export type RadiologyHighlight = {
   description: string;
 };
 
+export type RadiologyServiceGroup = {
+  category: string;
+  services: string[];
+};
+
 export type RadiologySchedule = {
   clinic: string;
   days: string;
@@ -18,6 +23,7 @@ export type RadiologyContent = {
   organizationalChartImageUrl: string | null;
   generalInformation: string;
   highlights: RadiologyHighlight[];
+  radiologyServiceGroups: RadiologyServiceGroup[];
   clinicSchedule: RadiologySchedule[];
   organizationalStructureDescription: string;
   updatedAt: string;
@@ -42,7 +48,7 @@ export async function getAdminRadiology(): Promise<RadiologyContent> {
   return (await parseJson<{ item: RadiologyContent }>(response)).item;
 }
 
-export async function updateRadiology(input: Pick<RadiologyContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">): Promise<RadiologyContent> {
+export async function updateRadiology(input: Pick<RadiologyContent, "title" | "generalInformation" | "highlights" | "radiologyServiceGroups" | "clinicSchedule" | "organizationalStructureDescription">): Promise<RadiologyContent> {
   const csrfToken = getCsrfToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (csrfToken) headers["x-csrf-token"] = csrfToken;

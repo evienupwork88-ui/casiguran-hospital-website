@@ -5,6 +5,11 @@ export type PathologyAndLaboratoriesHighlight = {
   description: string;
 };
 
+export type PathologyAndLaboratoriesServiceGroup = {
+  category: string;
+  services: string[];
+};
+
 export type PathologyAndLaboratoriesSchedule = {
   clinic: string;
   days: string;
@@ -18,6 +23,7 @@ export type PathologyAndLaboratoriesContent = {
   organizationalChartImageUrl: string | null;
   generalInformation: string;
   highlights: PathologyAndLaboratoriesHighlight[];
+  laboratoryServiceGroups: PathologyAndLaboratoriesServiceGroup[];
   clinicSchedule: PathologyAndLaboratoriesSchedule[];
   organizationalStructureDescription: string;
   updatedAt: string;
@@ -42,7 +48,7 @@ export async function getAdminPathologyAndLaboratories(): Promise<PathologyAndLa
   return (await parseJson<{ item: PathologyAndLaboratoriesContent }>(response)).item;
 }
 
-export async function updatePathologyAndLaboratories(input: Pick<PathologyAndLaboratoriesContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">): Promise<PathologyAndLaboratoriesContent> {
+export async function updatePathologyAndLaboratories(input: Pick<PathologyAndLaboratoriesContent, "title" | "generalInformation" | "highlights" | "laboratoryServiceGroups" | "clinicSchedule" | "organizationalStructureDescription">): Promise<PathologyAndLaboratoriesContent> {
   const csrfToken = getCsrfToken();
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (csrfToken) headers["x-csrf-token"] = csrfToken;
@@ -61,7 +67,7 @@ export async function uploadPathologyAndLaboratoriesImages(files: File[]): Promi
   if (csrfToken) headers["x-csrf-token"] = csrfToken;
   const formData = new FormData();
   files.forEach((file) => formData.append("images", file));
-  const response = await fetch(`${API_BASE_URL}/api/admin/pathology_laboratories/images`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/pathology-laboratories/images`, {
     method: "POST",
     credentials: "include",
     headers,
@@ -74,7 +80,7 @@ export async function removePathologyAndLaboratoriesImage(index: number): Promis
   const csrfToken = getCsrfToken();
   const headers: Record<string, string> = {};
   if (csrfToken) headers["x-csrf-token"] = csrfToken;
-  const response = await fetch(`${API_BASE_URL}/api/admin/pathology_laboratories/images/${index}`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/pathology-laboratories/images/${index}`, {
     method: "DELETE",
     credentials: "include",
     headers,
@@ -88,7 +94,7 @@ export async function uploadPathologyAndLaboratoriesOrganizationalChart(file: Fi
   if (csrfToken) headers["x-csrf-token"] = csrfToken;
   const formData = new FormData();
   formData.set("chartImage", file);
-  const response = await fetch(`${API_BASE_URL}/api/admin/pathology_laboratories/organizational-chart-image`, {
+  const response = await fetch(`${API_BASE_URL}/api/admin/pathology-laboratories/organizational-chart-image`, {
     method: "PUT",
     credentials: "include",
     headers,

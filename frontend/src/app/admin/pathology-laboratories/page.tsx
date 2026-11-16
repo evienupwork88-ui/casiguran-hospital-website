@@ -13,12 +13,18 @@ import {
   type PathologyAndLaboratoriesContent,
 } from "@/lib/api/pathology-laboratories";
 
-type PathologyAndLaboratoriesForm = Pick<PathologyAndLaboratoriesContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
+type PathologyAndLaboratoriesForm = Pick<PathologyAndLaboratoriesContent, "title" | "generalInformation" | "highlights" | "laboratoryServiceGroups" | "clinicSchedule" | "organizationalStructureDescription">;
+
+const defaultLaboratoryServiceGroups = [
+  { category: "Laboratory Services", services: [] as string[] },
+  { category: "Send-out Laboratory", services: [] as string[] },
+];
 
 const emptyForm: PathologyAndLaboratoriesForm = {
   title: "Pathology and Laboratories",
   generalInformation: "",
   highlights: [],
+  laboratoryServiceGroups: defaultLaboratoryServiceGroups,
   clinicSchedule: [],
   organizationalStructureDescription: "",
 };
@@ -50,6 +56,7 @@ export default function AdminPathologyAndLaboratoriesPage() {
           title: data.title,
           generalInformation: data.generalInformation,
           highlights: data.highlights,
+          laboratoryServiceGroups: data.laboratoryServiceGroups.length ? data.laboratoryServiceGroups : defaultLaboratoryServiceGroups,
           clinicSchedule: data.clinicSchedule,
           organizationalStructureDescription: data.organizationalStructureDescription,
         });
@@ -87,6 +94,7 @@ export default function AdminPathologyAndLaboratoriesPage() {
         title: saved.title,
         generalInformation: saved.generalInformation,
         highlights: saved.highlights,
+        laboratoryServiceGroups: saved.laboratoryServiceGroups,
         clinicSchedule: saved.clinicSchedule,
         organizationalStructureDescription: saved.organizationalStructureDescription,
       });
@@ -152,10 +160,30 @@ export default function AdminPathologyAndLaboratoriesPage() {
     }
   }
 
-  function updateHighlight(index: number, field: "title" | "description", value: string) {
+  function updateLaboratoryService(groupIndex: number, serviceIndex: number, value: string) {
     setForm((current) => ({
       ...current,
-      highlights: current.highlights.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+      laboratoryServiceGroups: current.laboratoryServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: group.services.map((service, itemIndex) => itemIndex === serviceIndex ? value : service) }
+        : group),
+    }));
+  }
+
+  function addLaboratoryService(groupIndex: number) {
+    setForm((current) => ({
+      ...current,
+      laboratoryServiceGroups: current.laboratoryServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: [...group.services, ""] }
+        : group),
+    }));
+  }
+
+  function removeLaboratoryService(groupIndex: number, serviceIndex: number) {
+    setForm((current) => ({
+      ...current,
+      laboratoryServiceGroups: current.laboratoryServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: group.services.filter((_, itemIndex) => itemIndex !== serviceIndex) }
+        : group),
     }));
   }
 
@@ -207,22 +235,54 @@ export default function AdminPathologyAndLaboratoriesPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Pathology and Laboratories services</h2>
-                <p className="mt-1 text-sm text-slate-600">Add the services visitors should know about.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Laboratory test list</h2>
+                <p className="mt-1 text-sm text-slate-600">Manage service names by category. Prices are not displayed.</p>
               </div>
-              <button type="button" onClick={() => setForm((current) => ({ ...current, highlights: [...current.highlights, { title: "", description: "" }] }))} disabled={form.highlights.length >= 30} className="rounded-lg border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50">Add service</button>
             </div>
-            {form.highlights.length ? (
-              <div className="mt-4 space-y-4">
-                {form.highlights.map((item, index) => (
-                  <div key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-[1fr_1.5fr_auto] md:items-start">
-                    <label className={labelClassName}>Service title<input value={item.title} onChange={(event) => updateHighlight(index, "title", event.target.value)} maxLength={200} required className={inputClassName} /></label>
-                    <label className={labelClassName}>Description<textarea value={item.description} onChange={(event) => updateHighlight(index, "description", event.target.value)} maxLength={1000} rows={2} className={inputClassName} /></label>
-                    <button type="button" onClick={() => setForm((current) => ({ ...current, highlights: current.highlights.filter((_, itemIndex) => itemIndex !== index) }))} className="mt-6 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+            <div className="mt-5 grid gap-5 xl:grid-cols-2">
+              {form.laboratoryServiceGroups.map((group, groupIndex) => (
+                <section key={group.category} className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="font-semibold text-slate-900">{group.category}</h3>
+                    <button
+                      type="button"
+                      onClick={() => addLaboratoryService(groupIndex)}
+                      disabled={group.services.length >= 100}
+                      className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                    >
+                      Add service
+                    </button>
                   </div>
-                ))}
-              </div>
-            ) : <p className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No services added yet.</p>}
+                  {group.services.length ? (
+                    <div className="mt-4 space-y-3">
+                      {group.services.map((service, serviceIndex) => (
+                        <div key={`${group.category}-${serviceIndex}`} className="flex items-start gap-2">
+                          <label className="sr-only" htmlFor={`lab-service-${groupIndex}-${serviceIndex}`}>{group.category} service {serviceIndex + 1}</label>
+                          <input
+                            id={`lab-service-${groupIndex}-${serviceIndex}`}
+                            value={service}
+                            onChange={(event) => updateLaboratoryService(groupIndex, serviceIndex, event.target.value)}
+                            maxLength={200}
+                            required
+                            className={inputClassName}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeLaboratoryService(groupIndex, serviceIndex)}
+                            aria-label={`Remove ${service || `service ${serviceIndex + 1}`}`}
+                            className="mt-2 shrink-0 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">No services in this category.</p>
+                  )}
+                </section>
+              ))}
+            </div>
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">

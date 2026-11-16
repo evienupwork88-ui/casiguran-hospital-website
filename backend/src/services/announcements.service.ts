@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
 import type { CreateAnnouncementInput, UpdateAnnouncementInput } from "../validation/announcements.schema";
+import { removePublicContentImage, uploadPublicContentImage, type UploadedImage } from "./public-media.service";
 
 export interface AnnouncementRecord {
   id: string;
@@ -88,13 +89,15 @@ export async function listAllAnnouncements(): Promise<AnnouncementRecord[]> {
 
 export async function createAnnouncement(
   input: CreateAnnouncementInput,
-  authorId: string
+  authorId: string,
+  coverImage?: UploadedImage,
 ): Promise<AnnouncementRecord> {
+  const coverImageUrl = coverImage ? await uploadPublicContentImage(coverImage) : input.coverImageUrl?.trim() || null;
   const payload = {
     title: input.title,
     body: input.body?.trim() ?? "",
     excerpt: input.excerpt?.trim() || null,
-    cover_image_url: input.coverImageUrl?.trim() || null,
+    cover_image_url: coverImageUrl,
     external_url: input.externalUrl?.trim() || null,
     priority: input.priority ?? "normal",
     status: input.status ?? "draft",
@@ -111,22 +114,37 @@ export async function createAnnouncement(
     .single();
 
   if (error) {
+    await removePublicContentImage(coverImageUrl);
     throw new Error(`Failed to create announcement: ${error.message}`);
   }
 
   if (!data) {
+    await removePublicContentImage(coverImageUrl);
     throw new AppError(500, "Could not create announcement", "ANNOUNCEMENT_CREATE_FAILED");
   }
 
   return mapAnnouncementRow(data);
 }
 
-export async function updateAnnouncement(id: string, input: UpdateAnnouncementInput): Promise<AnnouncementRecord> {
+export async function updateAnnouncement(id: string, input: UpdateAnnouncementInput, coverImage?: UploadedImage): Promise<AnnouncementRecord> {
   const payload: Record<string, unknown> = {};
+  let previousCoverImageUrl: string | null = null;
+  if (coverImage || input.coverImageUrl !== undefined) {
+    const { data: existing, error: existingError } = await supabase
+      .from("announcements")
+      .select("cover_image_url")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw new Error(`Failed to load announcement before replacing its cover: ${existingError.message}`);
+    if (!existing) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
+    previousCoverImageUrl = existing.cover_image_url ?? null;
+  }
+  const coverImageUrl = coverImage ? await uploadPublicContentImage(coverImage) : undefined;
+  const nextCoverImageUrl = coverImageUrl ?? (input.coverImageUrl === undefined ? undefined : input.coverImageUrl.trim() || null);
   if (input.title !== undefined) payload.title = input.title;
   if (input.body !== undefined) payload.body = input.body.trim();
   if (input.excerpt !== undefined) payload.excerpt = input.excerpt.trim() || null;
-  if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (nextCoverImageUrl !== undefined) payload.cover_image_url = nextCoverImageUrl;
   if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.priority !== undefined) payload.priority = input.priority;
   if (input.status !== undefined) payload.status = input.status;
@@ -135,13 +153,24 @@ export async function updateAnnouncement(id: string, input: UpdateAnnouncementIn
   if (input.expiresAt !== undefined) payload.expires_at = input.expiresAt || null;
   const { data, error } = await supabase.from("announcements").update(payload).eq("id", id)
     .select("id, title, body, excerpt, cover_image_url, external_url, priority, status, display_date, publish_at, expires_at, author_id, created_at, updated_at").single();
-  if (error) throw new Error(`Failed to update announcement: ${error.message}`);
-  if (!data) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
+  if (error) {
+    await removePublicContentImage(coverImageUrl);
+    throw new Error(`Failed to update announcement: ${error.message}`);
+  }
+  if (!data) {
+    await removePublicContentImage(coverImageUrl);
+    throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
+  }
+  if (nextCoverImageUrl !== undefined && previousCoverImageUrl !== nextCoverImageUrl) await removePublicContentImage(previousCoverImageUrl);
   return mapAnnouncementRow(data);
 }
 
 export async function deleteAnnouncement(id: string): Promise<void> {
+  const { data: existing, error: loadError } = await supabase.from("announcements").select("cover_image_url").eq("id", id).maybeSingle();
+  if (loadError) throw new Error(`Failed to load announcement before deleting it: ${loadError.message}`);
+  if (!existing) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
   const { data, error } = await supabase.from("announcements").delete().eq("id", id).select("id").single();
   if (error) throw new Error(`Failed to delete announcement: ${error.message}`);
   if (!data) throw new AppError(404, "Announcement not found", "ANNOUNCEMENT_NOT_FOUND");
+  await removePublicContentImage(existing.cover_image_url);
 }

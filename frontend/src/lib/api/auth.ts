@@ -109,11 +109,11 @@ export async function requestPasswordReset(email: string): Promise<void> {
   await parseJson<{ message: string }>(response);
 }
 
-export async function resetPassword(email: string, code: string, password: string): Promise<void> {
+export async function resetPassword(token: string, password: string, confirmPassword: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, code, password }),
+    body: JSON.stringify({ token, password, confirmPassword }),
   });
   await parseJson<{ message: string }>(response);
 }

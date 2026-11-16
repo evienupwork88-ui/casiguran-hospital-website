@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
 import type { CreateNewsInput, UpdateNewsInput } from "../validation/news.schema";
+import { removePublicContentImage, uploadPublicContentImage, type UploadedImage } from "./public-media.service";
 
 export interface NewsRecord {
   id: string;
@@ -78,13 +79,14 @@ export async function listAllNews(): Promise<NewsRecord[]> {
   return (data ?? []).map(mapNewsRow);
 }
 
-export async function createNews(input: CreateNewsInput, authorId: string): Promise<NewsRecord> {
+export async function createNews(input: CreateNewsInput, authorId: string, coverImage?: UploadedImage): Promise<NewsRecord> {
+  const coverImageUrl = coverImage ? await uploadPublicContentImage(coverImage) : input.coverImageUrl?.trim() || null;
   const payload = {
     title: input.title,
     slug: input.slug,
     excerpt: input.excerpt?.trim() || null,
     body: input.body?.trim() || input.excerpt?.trim() || input.title,
-    cover_image_url: input.coverImageUrl?.trim() || null,
+    cover_image_url: coverImageUrl,
     external_url: input.externalUrl?.trim() || null,
     status: input.status ?? "draft",
     published_at: input.publishedAt && input.publishedAt.trim() !== "" ? input.publishedAt : null,
@@ -99,18 +101,33 @@ export async function createNews(input: CreateNewsInput, authorId: string): Prom
     .single();
 
   if (error) {
+    await removePublicContentImage(coverImageUrl);
     throw new Error(`Failed to create news article: ${error.message}`);
   }
 
   if (!data) {
+    await removePublicContentImage(coverImageUrl);
     throw new AppError(500, "Could not create news article", "NEWS_CREATE_FAILED");
   }
 
   return mapNewsRow(data);
 }
 
-export async function updateNews(id: string, input: UpdateNewsInput): Promise<NewsRecord> {
+export async function updateNews(id: string, input: UpdateNewsInput, coverImage?: UploadedImage): Promise<NewsRecord> {
   const payload: Record<string, unknown> = {};
+  let previousCoverImageUrl: string | null = null;
+  if (coverImage || input.coverImageUrl !== undefined) {
+    const { data: existing, error: existingError } = await supabase
+      .from("news_posts")
+      .select("cover_image_url")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw new Error(`Failed to load news article before replacing its cover: ${existingError.message}`);
+    if (!existing) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
+    previousCoverImageUrl = existing.cover_image_url ?? null;
+  }
+  const coverImageUrl = coverImage ? await uploadPublicContentImage(coverImage) : undefined;
+  const nextCoverImageUrl = coverImageUrl ?? (input.coverImageUrl === undefined ? undefined : input.coverImageUrl.trim() || null);
   if (input.title !== undefined) payload.title = input.title;
   if (input.slug !== undefined) payload.slug = input.slug;
   if (input.excerpt !== undefined) payload.excerpt = input.excerpt.trim() || null;
@@ -118,20 +135,31 @@ export async function updateNews(id: string, input: UpdateNewsInput): Promise<Ne
     const body = input.body.trim() || input.excerpt?.trim() || input.title;
     if (body) payload.body = body;
   }
-  if (input.coverImageUrl !== undefined) payload.cover_image_url = input.coverImageUrl.trim() || null;
+  if (nextCoverImageUrl !== undefined) payload.cover_image_url = nextCoverImageUrl;
   if (input.externalUrl !== undefined) payload.external_url = input.externalUrl.trim() || null;
   if (input.status !== undefined) payload.status = input.status;
   if (input.publishedAt !== undefined) payload.published_at = input.publishedAt || null;
   if (input.displayDate !== undefined) payload.display_date = input.displayDate || null;
   const { data, error } = await supabase.from("news_posts").update(payload).eq("id", id)
     .select("id, title, slug, excerpt, body, cover_image_url, external_url, status, published_at, display_date, author_id, created_at, updated_at").single();
-  if (error) throw new Error(`Failed to update news article: ${error.message}`);
-  if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
+  if (error) {
+    await removePublicContentImage(coverImageUrl);
+    throw new Error(`Failed to update news article: ${error.message}`);
+  }
+  if (!data) {
+    await removePublicContentImage(coverImageUrl);
+    throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
+  }
+  if (nextCoverImageUrl !== undefined && previousCoverImageUrl !== nextCoverImageUrl) await removePublicContentImage(previousCoverImageUrl);
   return mapNewsRow(data);
 }
 
 export async function deleteNews(id: string): Promise<void> {
+  const { data: existing, error: loadError } = await supabase.from("news_posts").select("cover_image_url").eq("id", id).maybeSingle();
+  if (loadError) throw new Error(`Failed to load news article before deleting it: ${loadError.message}`);
+  if (!existing) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
   const { data, error } = await supabase.from("news_posts").delete().eq("id", id).select("id").single();
   if (error) throw new Error(`Failed to delete news article: ${error.message}`);
   if (!data) throw new AppError(404, "News article not found", "NEWS_NOT_FOUND");
+  await removePublicContentImage(existing.cover_image_url);
 }

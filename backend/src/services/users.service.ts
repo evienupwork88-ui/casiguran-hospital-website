@@ -1,7 +1,7 @@
-import bcrypt from "bcrypt";
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
 import type { CreateUserInput, UpdateUserInput } from "../validation/users.schema";
+import { hashPassword } from "./password-hash.service";
 
 export interface StaffUserRecord {
   id: string;
@@ -54,7 +54,7 @@ export async function listStaffUsers(): Promise<StaffUserRecord[]> {
 
 export async function createStaffUser(input: CreateUserInput): Promise<StaffUserRecord> {
   const normalizedEmail = input.email.trim().toLowerCase();
-  const passwordHash = await bcrypt.hash(input.password, 12);
+  const passwordHash = await hashPassword(input.password);
   const fullName = formatFullName(input);
 
   const { data, error } = await supabase
@@ -112,7 +112,7 @@ export async function updateStaffUser(id: string, input: UpdateUserInput): Promi
     }) || existing.full_name;
   }
   if (typeof input.isActive === "boolean") payload.is_active = input.isActive;
-  if (input.password) payload.password_hash = await bcrypt.hash(input.password, 12);
+  if (input.password) payload.password_hash = await hashPassword(input.password);
 
   if (input.isActive === false) {
     const { data: current, error: currentError } = await supabase

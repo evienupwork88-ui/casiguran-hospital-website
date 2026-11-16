@@ -79,14 +79,13 @@ export default function AdminMfaPage() {
   }
 
   if (isLoading) {
-    return <main className="flex min-h-screen items-center justify-center bg-slate-100 text-slate-700">Loading MFA...</main>;
+    return <p className="py-8 text-center text-sm text-slate-600">Loading MFA...</p>;
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-5 py-10">
-      <section className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-7 shadow-sm">
+    <div>
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-violet-700">Admin account security</p>
-        <h1 className="mt-2 text-2xl font-bold text-slate-900">
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">
           {recoveryCodes ? "Save your recovery codes" : user?.requiresMfaSetup ? "Set up two-factor authentication" : "Verify your identity"}
         </h1>
 
@@ -101,7 +100,7 @@ export default function AdminMfaPage() {
             <button
               type="button"
               onClick={() => router.replace("/admin/dashboard")}
-              className="mt-6 w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white hover:bg-violet-800"
+              className="mt-6 w-full rounded-xl border-b-2 border-amber-500 bg-violet-800 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-amber-400 hover:text-violet-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500"
             >
               I saved my codes — continue
             </button>
@@ -160,7 +159,7 @@ export default function AdminMfaPage() {
               maxLength={useRecoveryCode ? 32 : 6}
               value={code}
               onChange={(event) => setCode(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-3 font-mono text-lg tracking-[0.2em] text-slate-900 outline-none focus:border-violet-500 focus:bg-white"
+              className="w-full rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-3 font-mono text-lg tracking-[0.2em] text-slate-900 outline-none transition focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-100"
               required
             />
             {user?.requiresMfaVerification ? (
@@ -175,13 +174,12 @@ export default function AdminMfaPage() {
             <button
               type="submit"
               disabled={isSubmitting || !setup && user?.requiresMfaSetup === true}
-              className="w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
+              className="w-full rounded-xl border-b-2 border-amber-500 bg-violet-800 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-amber-400 hover:text-violet-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:cursor-not-allowed disabled:bg-violet-400"
             >
               {isSubmitting ? "Verifying..." : "Continue"}
             </button>
           </form>
         ) : null}
-      </section>
-    </main>
+    </div>
   );
 }

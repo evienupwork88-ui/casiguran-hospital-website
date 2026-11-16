@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { coverImageUpload } from "../../middleware/coverImageUpload";
 import { createAdminEvent, deleteAdminEvent, listAdminEvents, updateAdminEvent } from "../../controllers/events.controller";
 import { requireAuth } from "../../middleware/requireAuth";
 import { requireChangeApproval } from "../../middleware/admin-change-approval";
@@ -12,8 +13,8 @@ const router = Router();
 
 router.use(requireAuth, requireRole("admin", "editor"));
 router.get("/", asyncHandler(listAdminEvents));
-router.post("/", requireCsrf, validateBody(createEventSchema), requireChangeApproval("Events", "Create"), asyncHandler(createAdminEvent));
-router.put("/:id", requireCsrf, validateBody(updateEventSchema), requireChangeApproval("Events", "Update"), asyncHandler(updateAdminEvent));
+router.post("/", requireCsrf, coverImageUpload.single("coverImage"), validateBody(createEventSchema), requireChangeApproval("Events", "Create"), asyncHandler(createAdminEvent));
+router.put("/:id", requireCsrf, coverImageUpload.single("coverImage"), validateBody(updateEventSchema), requireChangeApproval("Events", "Update"), asyncHandler(updateAdminEvent));
 router.delete("/:id", requireRole("admin", "editor"), requireCsrf, requireChangeApproval("Events", "Delete"), asyncHandler(deleteAdminEvent));
 
 export default router;

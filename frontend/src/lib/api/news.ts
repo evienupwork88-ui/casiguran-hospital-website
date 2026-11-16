@@ -1,4 +1,5 @@
 import { getCsrfToken } from "./auth";
+import { createContentRequest } from "./content-request";
 
 export type NewsItem = {
   id: string;
@@ -73,22 +74,15 @@ export async function createNews(input: {
   status?: "draft" | "published";
   publishedAt?: string;
   displayDate?: string;
+  coverImage?: File | null;
 }): Promise<NewsItem> {
-  const csrfToken = getCsrfToken();
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (csrfToken) {
-    headers["x-csrf-token"] = csrfToken;
-  }
+  const { headers, body } = createContentRequest(input);
 
   const response = await fetch(`${API_BASE_URL}/api/admin/news`, {
     method: "POST",
     credentials: "include",
     headers,
-    body: JSON.stringify(input),
+    body,
   });
 
   const data = await parseJson<{ item: NewsItem }>(response);
@@ -103,7 +97,8 @@ function csrfHeaders() {
 }
 
 export async function updateNews(id: string, input: Partial<Parameters<typeof createNews>[0]>): Promise<NewsItem> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/news/${id}`, { method: "PUT", credentials: "include", headers: csrfHeaders(), body: JSON.stringify(input) });
+  const { headers, body } = createContentRequest(input);
+  const response = await fetch(`${API_BASE_URL}/api/admin/news/${id}`, { method: "PUT", credentials: "include", headers, body });
   const data = await parseJson<{ item: NewsItem }>(response);
   return data.item;
 }

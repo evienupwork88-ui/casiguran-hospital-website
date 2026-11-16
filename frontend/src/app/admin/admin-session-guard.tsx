@@ -9,7 +9,9 @@ export function AdminSessionGuard({ children, adminPath }: { children: React.Rea
   const pathname = usePathname();
   const router = useRouter();
   const [clientPathname, setClientPathname] = useState<string | null>(null);
-  const isPublicAuthRoute = clientPathname === `${adminPath}/login` || clientPathname === `${adminPath}/forgot-password`;
+  const isPublicAuthRoute = clientPathname === `${adminPath}/login`
+    || clientPathname === `${adminPath}/forgot-password`
+    || clientPathname === `${adminPath}/reset-password`;
   const isMfaRoute = clientPathname === `${adminPath}/mfa`;
   const [isReady, setIsReady] = useState(false);
   const [sessionError, setSessionError] = useState<string | null>(null);

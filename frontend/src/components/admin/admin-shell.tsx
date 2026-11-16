@@ -31,6 +31,23 @@ import { approveAndApplyChangeRequest, markRejectedChangeRequestRead, rejectChan
 import { ChangeRequestSummary } from "@/components/admin/change-request-summary";
 import { useServerClock } from "@/lib/hooks/use-server-clock";
 
+const patientCareItems = [
+  { href: "/admin/opd", label: "OPD page", icon: Activity },
+  { href: "/admin/emergency-department", label: "Emergency Department", icon: HeartPulse },
+  { href: "/admin/radiology", label: "Radiology page", icon: HeartPulse },
+  { href: "/admin/general-medicine", label: "General Medicine", icon: HeartPulse },
+  { href: "/admin/obstetrics-and-gynecology", label: "Obstetrics and Gynecology", icon: HeartPulse },
+  { href: "/admin/pediatrics", label: "Pediatrics", icon: HeartPulse },
+  { href: "/admin/dental", label: "Dental page", icon: HeartPulse },
+  { href: "/admin/medical-social-service", label: "Medical Social Service", icon: HeartPulse },
+  { href: "/admin/nutrition-and-dietetics", label: "Nutrition and Dietetics", icon: HeartPulse },
+  { href: "/admin/pharmacy", label: "Pharmacy", icon: HeartPulse },
+  { href: "/admin/pathology-laboratories", label: "Pathology and Laboratories", icon: HeartPulse },
+  { href: "/admin/nursing-service", label: "Nursing Service", icon: HeartPulse },
+  { href: "/admin/himd", label: "Health Information Management Department", icon: HeartPulse },
+  { href: "/admin/billing-claims", label: "Billing and Claims", icon: HeartPulse },
+];
+
 const navigation = [
   {
     section: "Overview",
@@ -46,22 +63,7 @@ const navigation = [
       {
         label: "Patient Care",
         icon: HeartPulse,
-        children: [
-          { href: "/admin/opd", label: "OPD page", icon: Activity },
-          { href: "/admin/emergency-department", label: "Emergency Department", icon: HeartPulse },
-          { href: "/admin/radiology", label: "Radiology page", icon: HeartPulse },
-          { href: "/admin/general-medicine", label: "General Medicine", icon: HeartPulse },
-          { href: "/admin/obstetrics-and-gynecology", label: "Obstetrics and Gynecology", icon: HeartPulse },
-          { href: "/admin/pediatrics", label: "Pediatrics", icon: HeartPulse },
-          { href: "/admin/dental", label: "Dental page", icon: HeartPulse },
-          { href: "/admin/medical-social-service", label: "Medical Social Service", icon: HeartPulse },
-          { href: "/admin/nutrition-and-dietetics", label: "Nutrition and Dietetics", icon: HeartPulse },
-          { href: "/admin/pharmacy", label: "Pharmacy", icon: HeartPulse },
-          { href: "/admin/pathology-laboratories", label: "Pathology and Laboratories", icon: HeartPulse },
-          { href: "/admin/nursing-service", label: "Nursing Service", icon: HeartPulse },
-          { href: "/admin/himd", label: "Health Information Management Department", icon: HeartPulse },
-          { href: "/admin/billing-claims", label: "Billing and Claims", icon: HeartPulse },
-        ],
+        children: patientCareItems,
       },
       { href: "/admin/rate-fees", label: "Rate & Fees", icon: CircleDollarSign },
       { href: "/admin/documents", label: "Documents", icon: FileText },
@@ -78,6 +80,19 @@ const navigation = [
     ],
   },
 ];
+
+function normalizeAdminPathname(pathname: string): string {
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) return pathname;
+  return pathname.replace(/^\/[^/]+/, "/admin");
+}
+
+function isNavigationPathActive(pathname: string, href: string): boolean {
+  return pathname === href || (href !== "/admin/dashboard" && pathname.startsWith(`${href}/`));
+}
+
+function isPatientCarePath(pathname: string): boolean {
+  return patientCareItems.some((item) => isNavigationPathActive(pathname, item.href));
+}
 
 type AdminUserMeta = {
   fullName?: string;
@@ -107,8 +122,9 @@ export function AdminShell({
   isLoggingOut?: boolean;
 }) {
   const pathname = usePathname();
+  const activePathname = normalizeAdminPathname(pathname);
   const router = useRouter();
-  const isAuditHistory = pathname.startsWith("/admin/audit-logs") || pathname.endsWith("/audit-logs");
+  const isAuditHistory = isNavigationPathActive(activePathname, "/admin/audit-logs");
   const [currentRole, setCurrentRole] = useState<AdminUserMeta["role"]>(user?.role);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -120,12 +136,14 @@ export function AdminShell({
   const [isShellLoggingOut, setIsShellLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState("");
   const logoutInProgressRef = useRef(false);
-  const [patientCareOpen, setPatientCareOpen] = useState(() =>
-    pathname.startsWith("/admin/opd") || pathname.startsWith("/admin/radiology") || pathname.startsWith("/admin/general-medicine") || pathname.startsWith("/admin/obstetrics-and-gynecology") || pathname.startsWith("/admin/pediatrics") || pathname.startsWith("/admin/emergency-department") || pathname.startsWith("/admin/dental") || pathname.startsWith("/admin/medical-social-service") || pathname.startsWith("/admin/nutrition-and-dietetics") || pathname.startsWith("/admin/pharmacy") || pathname.startsWith("/admin/pathology-laboratories") || pathname.startsWith("/admin/nursing-service") || pathname.startsWith("/admin/himd") || pathname.startsWith("/admin/billing-claims"),
-  );
+  const [patientCareOpen, setPatientCareOpen] = useState(() => isPatientCarePath(activePathname));
   const mobileMenuTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileMenuRef = useRef<HTMLElement>(null);
   const notificationsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setPatientCareOpen(isPatientCarePath(activePathname));
+  }, [activePathname]);
 
   useEffect(() => {
     if (user?.role) {
@@ -297,8 +315,8 @@ export function AdminShell({
   }
 
   return (
-    <div className="admin-theme min-h-dvh overflow-x-hidden bg-[#f5f3ff] text-slate-900">
-      <div className="flex h-dvh overflow-hidden">
+    <div className="admin-theme fixed inset-0 overflow-hidden bg-[#f5f3ff] text-slate-900">
+      <div className="flex h-full overflow-hidden">
         <div
           aria-hidden={mobileOpen ? "false" : "true"}
           className={`fixed inset-0 z-40 bg-slate-950/40 transition-opacity duration-200 lg:hidden ${mobileOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}
@@ -367,8 +385,8 @@ export function AdminShell({
                     {visibleItems.map((item) => {
                       const Icon = item.icon;
                       const children = "children" in item ? item.children : undefined;
-                      const isPatientCareActive = children?.some((child) => pathname === child.href || pathname.startsWith(child.href)) ?? false;
-                      const isActive = isPatientCareActive || (item.href ? pathname === item.href || (item.href !== "/admin/dashboard" && pathname.startsWith(item.href)) : false);
+                      const isPatientCareActive = children?.some((child) => isNavigationPathActive(activePathname, child.href)) ?? false;
+                      const isActive = isPatientCareActive || (item.href ? isNavigationPathActive(activePathname, item.href) : false);
 
                       if (children) {
                         return (
@@ -413,11 +431,12 @@ export function AdminShell({
                               <div className="ml-6 mt-1.5 space-y-1 border-l border-violet-300/25 pl-3">
                                 {children.map((child) => {
                                   const ChildIcon = child.icon;
-                                  const childActive = pathname === child.href || pathname.startsWith(child.href);
+                                  const childActive = isNavigationPathActive(activePathname, child.href);
                                   return (
                                     <Link
                                       key={child.href}
                                       href={child.href}
+                                      aria-current={childActive ? "page" : undefined}
                                       onClick={(event) => {
                                         if (onNavigationAttempt?.(child.href)) {
                                           event.preventDefault();
@@ -449,6 +468,7 @@ export function AdminShell({
                         <Link
                           key={item.href}
                           href={item.href}
+                          aria-current={isActive ? "page" : undefined}
                           onClick={(event) => {
                             if (onNavigationAttempt?.(item.href)) {
                               event.preventDefault();
@@ -518,7 +538,7 @@ export function AdminShell({
           </div>
         </aside>
 
-        <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-[#f5f3ff]">
+        <main className="min-h-0 min-w-0 flex-1 overscroll-contain overflow-y-auto bg-[#f5f3ff]">
           <div className="mx-auto min-w-0 w-full max-w-none px-3 pb-8 pt-4 sm:px-6 sm:pt-5 lg:px-8 lg:pt-6">
             <header className={`relative z-50 rounded-[24px] border border-violet-200 bg-white/90 p-4 shadow-[0_18px_45px_rgba(91,33,182,0.05)] backdrop-blur-sm sm:p-5 ${isAuditHistory ? "mb-5 shrink-0" : "mb-8"}`}>
               <div className="flex items-center justify-between gap-3">

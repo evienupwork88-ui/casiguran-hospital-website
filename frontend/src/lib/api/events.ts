@@ -1,4 +1,5 @@
 import { getCsrfToken } from "./auth";
+import { createContentRequest } from "./content-request";
 
 export type EventItem = {
   id: string;
@@ -59,22 +60,15 @@ export async function createEvent(input: {
   coverImageUrl?: string;
   externalUrl?: string;
   status?: "draft" | "published";
+  coverImage?: File | null;
 }): Promise<EventItem> {
-  const csrfToken = getCsrfToken();
-
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-
-  if (csrfToken) {
-    headers["x-csrf-token"] = csrfToken;
-  }
+  const { headers, body } = createContentRequest(input);
 
   const response = await fetch(`${API_BASE_URL}/api/admin/events`, {
     method: "POST",
     credentials: "include",
     headers,
-    body: JSON.stringify(input),
+    body,
   });
 
   const data = await parseJson<{ item: EventItem }>(response);
@@ -89,7 +83,8 @@ function csrfHeaders() {
 }
 
 export async function updateEvent(id: string, input: Partial<Parameters<typeof createEvent>[0]>): Promise<EventItem> {
-  const response = await fetch(`${API_BASE_URL}/api/admin/events/${id}`, { method: "PUT", credentials: "include", headers: csrfHeaders(), body: JSON.stringify(input) });
+  const { headers, body } = createContentRequest(input);
+  const response = await fetch(`${API_BASE_URL}/api/admin/events/${id}`, { method: "PUT", credentials: "include", headers, body });
   const data = await parseJson<{ item: EventItem }>(response);
   return data.item;
 }

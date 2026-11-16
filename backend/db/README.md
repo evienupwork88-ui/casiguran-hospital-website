@@ -84,6 +84,9 @@ Migration 0053 replaces all existing laboratory rate rows with the supplied labo
 Migration 0054 removes the former date from the laboratory rate section label for databases where migration 0053 was already applied.
 Migration 0055 creates the editable Rate and Fees header slideshow.
 Migrations 0056–0060 add security hardening, immutable roles, protected audit monitoring, staff-update MFA step-up, and progressive request cooldowns. Apply them in numerical order; migration 0060 requires the login-throttle table created by 0056. Migration 0061 is an optional one-time reset for lockout state accumulated under the older cooldown policy. Migration 0062 enables unread rejection notifications for Editors. Migration 0063 adds durable email delivery and retry state for new Editor change requests; apply it before deploying the matching backend.
+Migration 0066 replaces the old email-code password recovery flow with hashed, single-use, 10-minute reset links. Apply it before deploying the matching backend. Set `FRONTEND_URL` to the public frontend origin and configure the existing Gmail SMTP variables before enabling password reset.
+Migration 0067 creates the public `cdh-public-media` Supabase Storage bucket used for News, Updates, and Events cover-image uploads. Apply it before deploying the matching backend; uploads are validated and written by the API using its server-side service-role key.
+Migration 0069 adds grouped, price-free Radiology services and their Admin CMS. Apply it before deploying the matching backend and frontend.
 Migration 0065 deletes all legacy Contact Messages from the active database and drops the unused `contact_messages` table; apply it after deploying the email-only Contact flow. Supabase-managed backups may retain older database snapshots until their configured retention period expires.
 Org chart image uploads allow up to 25 MB by default; Supabase Storage and the API hosting provider must also allow uploads of that size.
 
@@ -96,6 +99,10 @@ For later schema changes, run only the new numbered migration in the
 Supabase SQL Editor. For an existing database, add the structured Key
 Officials profiles by running
 [`migrations/0010_key_official_profiles.sql`](migrations/0010_key_official_profiles.sql).
+For uploaded News, Updates, and Events cover images, run
+[`migrations/0067_public_content_images.sql`](migrations/0067_public_content_images.sql).
+For grouped Radiology services and their Admin CMS, run
+[`migrations/0069_radiology_service_groups.sql`](migrations/0069_radiology_service_groups.sql).
 For the Hospital History background image field, run
 [`migrations/0012_hospital_history_cover_image.sql`](migrations/0012_hospital_history_cover_image.sql).
 For the Trainings public page and Admin Console manager, run

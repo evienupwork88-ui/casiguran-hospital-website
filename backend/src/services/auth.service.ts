@@ -1,6 +1,6 @@
-import bcrypt from "bcrypt";
 import { supabase } from "../config/supabase";
 import { AppError } from "../utils/AppError";
+import { verifyPassword } from "./password-hash.service";
 
 export type AdminRole = "admin" | "editor";
 
@@ -67,11 +67,11 @@ export async function verifyCredentials(
     // Still run a bcrypt compare against a dummy hash even when the
     // account doesn't exist, so the response time for "unknown email"
     // and "wrong password" is not distinguishably different.
-    await bcrypt.compare(password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidin");
+    await verifyPassword(password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidin");
     throw invalidCredentialsError;
   }
 
-  const passwordMatches = await bcrypt.compare(password, admin.password_hash);
+  const passwordMatches = await verifyPassword(password, admin.password_hash);
   if (!passwordMatches) {
     throw invalidCredentialsError;
   }

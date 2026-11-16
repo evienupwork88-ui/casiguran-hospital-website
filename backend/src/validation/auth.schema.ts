@@ -10,9 +10,12 @@ export const requestPasswordResetSchema = z.object({
 });
 
 export const completePasswordResetSchema = z.object({
-  email: z.string().trim().toLowerCase().max(254).email("Enter a valid email address"),
-  code: z.string().trim().regex(/^\d{6}$/, "Enter the 6-digit code from your email"),
+  token: z.string().regex(/^[a-f0-9]{64}$/i, "This reset link is invalid or expired"),
   password: z.string().min(12, "Password must be at least 12 characters long").max(128, "Password must be 128 characters or less"),
+  confirmPassword: z.string().min(1, "Confirm your new password").max(128, "Password must be 128 characters or less"),
+}).refine((input) => input.password === input.confirmPassword, {
+  message: "Passwords do not match",
+  path: ["confirmPassword"],
 });
 
 export const mfaCodeSchema = z.object({

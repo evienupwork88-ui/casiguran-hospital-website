@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
+import { AdminAuthShell } from "@/components/admin/admin-auth-shell";
 import { useNotifications } from "@/components/providers/notification-provider";
 import { ApiRequestError, getMe, login } from "@/lib/api/auth";
 
@@ -78,16 +79,14 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-slate-100 px-6 py-12">
-      <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
-        <div className="mb-6">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-700">
-            Admin CMS
-          </p>
-          <h1 className="mt-2 text-3xl font-bold text-slate-900">Sign in</h1>
-        </div>
+    <AdminAuthShell>
+      <div className="mb-7">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-700">Staff access</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-950">Sign in to your account</h1>
+        <p className="mt-2 text-sm leading-6 text-slate-600">Use your hospital staff account to continue.</p>
+      </div>
 
-        {isCheckingSession ? (
+      {isCheckingSession ? (
           <p className="py-8 text-center text-sm text-slate-600">Checking your session...</p>
         ) : (
           <>
@@ -103,7 +102,7 @@ export default function AdminLoginPage() {
               autoComplete="username"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+              className="w-full rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-3 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-100"
               placeholder="admin@casiguranhospital.gov.ph"
               required
             />
@@ -121,7 +120,7 @@ export default function AdminLoginPage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(event) => setPassword(event.target.value)}
-                className="w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 pr-11 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
+                className="w-full rounded-xl border border-violet-200 bg-violet-50/40 px-3 py-3 pr-11 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-violet-600 focus:bg-white focus:ring-4 focus:ring-violet-100"
                 placeholder="••••••••"
                 required
               />
@@ -145,19 +144,18 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full rounded-xl bg-violet-700 px-4 py-3 text-sm font-semibold text-white transition hover:bg-violet-800 disabled:cursor-not-allowed disabled:bg-violet-400"
+            className="w-full rounded-xl border-b-2 border-amber-500 bg-violet-800 px-4 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-amber-400 hover:text-violet-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-500 disabled:cursor-not-allowed disabled:bg-violet-400"
           >
             {isSubmitting ? "Signing in..." : "Sign in"}
           </button>
             </form>
-            <div className="mt-5 text-center">
-              <Link href="/admin/forgot-password" className="text-sm font-medium text-violet-700 hover:text-violet-800">
+            <div className="mt-5 flex justify-end">
+              <Link href="/admin/forgot-password" className="text-sm font-semibold text-violet-700 hover:text-violet-900">
                 Forgot password?
               </Link>
             </div>
           </>
         )}
-      </div>
-    </main>
+    </AdminAuthShell>
   );
 }

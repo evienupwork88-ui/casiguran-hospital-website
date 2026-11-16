@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdminSessionGuard } from "./admin-session-guard";
 
 export const metadata: Metadata = {
+  referrer: "no-referrer",
   robots: {
     index: false,
     follow: false,

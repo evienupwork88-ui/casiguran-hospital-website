@@ -47,13 +47,13 @@ export async function createAdminEvent(req: Request, res: Response) {
     throw new AppError(401, "Not authenticated", "UNAUTHENTICATED");
   }
 
-  const event = await createEvent(input, req.user.id);
+  const event = await createEvent(input, req.user.id, req.file);
   res.status(201).json({ item: event });
 }
 
 export async function updateAdminEvent(req: Request, res: Response) {
   const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-  const event = await updateEvent(id, req.body as UpdateEventInput);
+  const event = await updateEvent(id, req.body as UpdateEventInput, req.file);
   res.status(200).json({ item: event });
 }
 

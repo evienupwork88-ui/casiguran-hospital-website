@@ -45,6 +45,16 @@ export const passwordResetRateLimiter = createProgressiveLimiter({
   message: "Too many password-reset attempts. Please wait before trying again.",
 });
 
+export const passwordResetCompletionRateLimiter = createProgressiveLimiter({
+  limit: env.rateLimitPasswordResetMax,
+  windowSeconds: env.rateLimitPasswordResetWindowMinutes * 60,
+  keys: (req) => [
+    { scope: "password_reset_ip", value: req.ip ?? req.socket.remoteAddress ?? "unknown" },
+    { scope: "password_reset_account", value: String(req.body.token) },
+  ],
+  message: "Too many password-reset attempts. Please wait before trying again.",
+});
+
 export const contactMessageRateLimiter = createProgressiveLimiter({
   limit: 1,
   windowSeconds: 5 * 60,

@@ -5,7 +5,6 @@ import { verifyCredentials } from "../services/auth.service";
 import { createSession, revokeSession } from "../services/session.service";
 import { getLoginLock, clearLoginFailures, recordLoginFailure } from "../services/login-throttle.service";
 import { beginMfaSetup, completeMfaSetup, verifyMfaLogin } from "../services/mfa.service";
-import { clearProgressiveThrottle } from "../services/progressive-rate-limit.service";
 import { env } from "../config/env";
 import type { CompletePasswordResetInput, LoginInput, MfaCodeInput, RequestPasswordResetInput } from "../validation/auth.schema";
 import { AppError } from "../utils/AppError";
@@ -74,21 +73,15 @@ export async function forgotPassword(req: Request, res: Response) {
   const { email } = req.body as RequestPasswordResetInput;
   await requestPasswordReset(email);
   res.status(200).json({
-    message: "If an active account uses that email, a verification code has been sent.",
+    message: "If an active account uses that email, password reset instructions have been sent.",
   });
 }
 
 export async function resetPassword(req: Request, res: Response) {
-  const { email } = req.body as CompletePasswordResetInput;
-  await completePasswordReset(req.body as CompletePasswordResetInput);
-  try {
-    await Promise.all([
-      clearProgressiveThrottle("password_reset_account", email),
-      clearProgressiveThrottle("password_reset_ip", req.ip ?? req.socket.remoteAddress ?? "unknown"),
-    ]);
-  } catch (error) {
-    console.error("[password reset] Failed to clear progressive cooldown after a successful reset:", error);
-  }
+  await completePasswordReset(req.body as CompletePasswordResetInput, {
+    ipAddress: (req.ip ?? req.socket.remoteAddress)?.slice(0, 64) ?? null,
+    userAgent: req.get("user-agent")?.slice(0, 500) ?? null,
+  });
   res.status(200).json({ message: "Password reset successfully. Sign in with your new password." });
 }
 

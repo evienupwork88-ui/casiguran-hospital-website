@@ -14,6 +14,9 @@ import { getPublicSettings, type SiteSettings } from "@/lib/api/settings";
 import { getPublicHomeGallery, type HomeGallery } from "@/lib/api/home-gallery";
 import { PublicDesktopNavigation, PublicMobileNavigation } from "@/components/public/public-navigation";
 import { HomeEventsCalendar } from "@/components/public/home-events-calendar";
+import { LatestVideos } from "@/components/public/latest-videos";
+import { FacebookPostEmbed } from "@/components/public/facebook-post-embed";
+import { getFacebookEmbedUrl } from "@/lib/facebook-embed";
 import { formatOfficeHours } from "@/lib/format-office-hours";
 
 const PGA_WEBSITE_URL = "https://auroraprovince.gov.ph/";
@@ -172,12 +175,57 @@ export default function Home() {
     };
   }, [mobileOpen]);
 
-  const featuredUpdates = [
-    ...announcements.map((item) => ({ type: "announcement" as const, item, date: item.displayDate || item.publishAt || item.createdAt })),
-    ...news.map((item) => ({ type: "news" as const, item, date: item.displayDate || item.publishedAt || item.createdAt })),
+  const allFeaturedUpdates = [
+    ...announcements.map((item) => ({
+      type: "announcement" as const,
+      id: item.id,
+      title: item.title,
+      excerpt: item.excerpt,
+      body: item.body,
+      coverImageUrl: item.coverImageUrl,
+      externalUrl: item.externalUrl,
+      priority: item.priority,
+      date: item.displayDate || item.publishAt || item.createdAt,
+    })),
+    ...news.map((item) => ({
+      type: "news" as const,
+      id: item.id,
+      title: item.title,
+      excerpt: item.excerpt,
+      body: item.body,
+      coverImageUrl: item.coverImageUrl,
+      externalUrl: item.externalUrl,
+      priority: null,
+      date: item.displayDate || item.publishedAt || item.createdAt,
+      slug: item.slug,
+    })),
+    ...events.map((item) => ({
+      type: "event" as const,
+      id: item.id,
+      title: item.title,
+      excerpt: item.excerpt,
+      body: item.description ?? "",
+      coverImageUrl: item.coverImageUrl,
+      externalUrl: item.externalUrl,
+      priority: null,
+      date: item.startAt,
+    })),
   ]
-    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime())
-    .slice(0, 3);
+    .sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+  const featuredUpdates = allFeaturedUpdates.slice(0, 3);
+  const latestEvent = allFeaturedUpdates.find((item) => item.type === "event");
+  if (latestEvent && !featuredUpdates.some((item) => item.type === "event")) featuredUpdates.push(latestEvent);
+  featuredUpdates.sort((left, right) => new Date(right.date).getTime() - new Date(left.date).getTime());
+  const latestVideos = allFeaturedUpdates
+    .filter((item) => getFacebookEmbedUrl(item.externalUrl))
+    .slice(0, 1)
+    .map((item) => ({
+      id: `${item.type}-${item.id}`,
+      title: item.title,
+      description: item.excerpt || (item.body.length > 180 ? `${item.body.slice(0, 180)}...` : item.body),
+      date: item.date,
+      url: item.externalUrl!,
+    }));
   const featuredDocuments = documents.filter((doc) => doc.status === "published").slice(0, 3);
 
   return (
@@ -416,31 +464,35 @@ export default function Home() {
             {featuredUpdates.length > 0 ? (
               featuredUpdates.map((entry) => {
                 const isNews = entry.type === "news";
-                const externalUrl = entry.item.externalUrl;
-                const coverImageUrl = entry.item.coverImageUrl;
-                const body = entry.item.body;
+                const isAnnouncement = entry.type === "announcement";
+                const externalUrl = entry.externalUrl;
+                const facebookEmbedUrl = getFacebookEmbedUrl(externalUrl);
+                const coverImageUrl = entry.coverImageUrl;
+                const body = entry.body;
                 const content = (
                   <>
-                    {coverImageUrl ? (
+                    {facebookEmbedUrl && externalUrl ? (
+                      <FacebookPostEmbed postUrl={externalUrl} title={entry.title} />
+                    ) : coverImageUrl ? (
                       <div className="bg-slate-100">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={coverImageUrl} alt={`${entry.item.title} cover`} className="block h-auto w-full" loading="lazy" />
+                        <img src={coverImageUrl} alt={`${entry.title} cover`} className="block h-auto w-full" loading="lazy" />
                       </div>
                     ) : null}
                     <div className="p-6">
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-[0.68rem] font-semibold uppercase tracking-[0.2em] text-violet-700">
-                          {isNews ? "News" : "Update"} · {formatDate(entry.date)}
+                          {isNews ? "News" : isAnnouncement ? "Update" : "Event"} · {formatDate(entry.date)}
                         </p>
-                        {!isNews && entry.item.priority === "urgent" ? (
+                        {isAnnouncement && entry.priority === "urgent" ? (
                           <span className="rounded-full bg-red-100 px-2 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wider text-red-700">Urgent</span>
                         ) : null}
                       </div>
-                      <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{entry.item.title}</h3>
+                      <h3 className="mt-4 text-2xl font-semibold tracking-[-0.04em] text-slate-900">{entry.title}</h3>
                       <p className="mt-3 whitespace-pre-line text-base leading-7 text-slate-600">
-                        {entry.item.excerpt || (body.length > 140 ? `${body.slice(0, 140)}...` : body)}
+                        {entry.excerpt || (body.length > 140 ? `${body.slice(0, 140)}...` : body)}
                       </p>
-                      {externalUrl ? (
+                      {externalUrl && !facebookEmbedUrl ? (
                         <span className="mt-4 inline-flex text-sm font-semibold text-violet-700">
                           Open original post ↗
                         </span>
@@ -452,15 +504,15 @@ export default function Home() {
 
                 return isNews && !externalUrl ? (
                   <Link
-                    key={`news-${entry.item.id}`}
-                    href={`/news/${encodeURIComponent(entry.item.slug)}`}
+                    key={`news-${entry.id}`}
+                    href={`/news/${encodeURIComponent(entry.slug)}`}
                     className={cardClass}
                   >
                     {content}
                   </Link>
-                ) : externalUrl ? (
+                ) : externalUrl && !facebookEmbedUrl ? (
                   <a
-                    key={`${entry.type}-${entry.item.id}`}
+                    key={`${entry.type}-${entry.id}`}
                     href={externalUrl}
                     target="_blank"
                     rel="noopener noreferrer"
@@ -469,7 +521,7 @@ export default function Home() {
                     {content}
                   </a>
                 ) : (
-                  <article key={`announcement-${entry.item.id}`} className={cardClass}>{content}</article>
+                  <article key={`${entry.type}-${entry.id}`} className={cardClass}>{content}</article>
                 );
               })
             ) : (
@@ -482,6 +534,8 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      <LatestVideos videos={latestVideos} />
 
       <section id="events" className="mx-auto max-w-7xl px-5 py-16 sm:px-8">
         <div className="mb-6 flex items-end justify-between gap-4">

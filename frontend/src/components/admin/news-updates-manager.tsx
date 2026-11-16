@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AdminShell } from "@/components/admin/admin-shell";
 import {
   createAnnouncement,
@@ -99,11 +99,29 @@ function SharedContentFields({
   form,
   onChange,
   bodyRequired,
+  coverImageFile,
+  setCoverImageFile,
 }: {
   form: SharedContentForm;
   onChange: (updates: Partial<SharedContentForm>) => void;
   bodyRequired: boolean;
+  coverImageFile: File | null;
+  setCoverImageFile: (file: File | null) => void;
 }) {
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!coverImageFile) {
+      setSelectedImagePreview(null);
+      return;
+    }
+
+    const previewUrl = URL.createObjectURL(coverImageFile);
+    setSelectedImagePreview(previewUrl);
+    return () => URL.revokeObjectURL(previewUrl);
+  }, [coverImageFile]);
+
   return (
     <div className="grid gap-5 md:grid-cols-2">
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
@@ -178,16 +196,47 @@ function SharedContentFields({
         </span>
       </label>
       <label className="block text-sm font-medium text-slate-700 md:col-span-2">
-        Cover image URL
+        Cover image upload
         <input
-          type="url"
-          maxLength={2048}
-          value={form.coverImageUrl}
-          onChange={(event) => onChange({ coverImageUrl: event.target.value })}
-          className="mt-2 w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-violet-500 focus:bg-white"
-          placeholder="https://example.com/image.jpg"
+          ref={imageInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file) setCoverImageFile(file);
+          }}
+          className="mt-2 block w-full rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-sm text-slate-900 file:mr-3 file:rounded-lg file:border-0 file:bg-violet-100 file:px-3 file:py-2 file:font-semibold file:text-violet-800"
         />
+        <span className="mt-1 block text-xs font-normal text-slate-500">JPG, PNG, or WebP up to 5 MB. Images keep their original proportions and fit the card width.</span>
       </label>
+      {(selectedImagePreview || form.coverImageUrl) ? (
+        <div className="md:col-span-2">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-sm font-medium text-slate-700">{coverImageFile ? "Selected cover preview" : "Current cover image"}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setCoverImageFile(null);
+                if (imageInputRef.current) imageInputRef.current.value = "";
+                onChange({ coverImageUrl: "" });
+              }}
+              className="text-sm font-medium text-red-700 hover:text-red-800"
+            >
+              Remove image
+            </button>
+          </div>
+          <div className="mt-2 overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={selectedImagePreview || form.coverImageUrl}
+              key={selectedImagePreview || form.coverImageUrl}
+              alt="Cover image preview"
+              className="block h-auto max-h-72 w-full object-contain"
+              onError={(event) => { event.currentTarget.hidden = true; }}
+            />
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -289,6 +338,8 @@ export function NewsUpdatesManager() {
   const [newsForm, setNewsForm] = useState(emptyNewsForm);
   const [announcementForm, setAnnouncementForm] = useState(emptyAnnouncementForm);
   const [eventForm, setEventForm] = useState(emptyEventForm);
+  const [createCoverImageFile, setCreateCoverImageFile] = useState<File | null>(null);
+  const [editCoverImageFile, setEditCoverImageFile] = useState<File | null>(null);
   const [editing, setEditing] = useState<ManagedItem | null>(null);
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -326,11 +377,14 @@ export function NewsUpdatesManager() {
     setNewsForm(emptyNewsForm);
     setAnnouncementForm(emptyAnnouncementForm);
     setEventForm(emptyEventForm);
+    setCreateCoverImageFile(null);
+    setEditCoverImageFile(null);
     setError("");
   }
 
   function beginEdit(item: ManagedItem) {
     setEditing(item);
+    setEditCoverImageFile(null);
     setContentType(item.type);
     if (item.type === "news") {
       setNewsForm({
@@ -380,17 +434,18 @@ export function NewsUpdatesManager() {
     try {
       if (contentType === "news") {
         if (editing?.type === "news") {
-          await updateNews(editing.item.id, newsForm);
+          await updateNews(editing.item.id, { ...newsForm, coverImage: editCoverImageFile });
           showSuccess("News post updated.", "Saved");
         } else if (editing) {
           throw new Error("The selected content type does not match the item being edited.");
         } else {
-          await createNews(newsForm);
+          await createNews({ ...newsForm, coverImage: createCoverImageFile });
           showSuccess("News post created.", "Saved");
         }
       } else if (contentType === "announcement") {
         const payload = {
           ...announcementForm,
+          coverImage: editing ? editCoverImageFile : createCoverImageFile,
           publishAt: announcementForm.publishAt ? toIsoDateTime(announcementForm.publishAt) : "",
           expiresAt: announcementForm.expiresAt ? toIsoDateTime(announcementForm.expiresAt) : "",
         };
@@ -408,6 +463,7 @@ export function NewsUpdatesManager() {
         const payload = {
           ...eventFields,
           description: body,
+          coverImage: editing ? editCoverImageFile : createCoverImageFile,
           startAt: toIsoDateTime(eventForm.startAt),
           endAt: eventForm.endAt ? toIsoDateTime(eventForm.endAt) : "",
         };
@@ -506,6 +562,8 @@ export function NewsUpdatesManager() {
               form={newsForm}
               onChange={(updates) => setNewsForm((current) => ({ ...current, ...updates }))}
               bodyRequired
+              coverImageFile={mode === "edit" ? editCoverImageFile : createCoverImageFile}
+              setCoverImageFile={mode === "edit" ? setEditCoverImageFile : setCreateCoverImageFile}
             />
             <NewsSpecificFields form={newsForm} setForm={setNewsForm} />
           </>
@@ -515,6 +573,8 @@ export function NewsUpdatesManager() {
               form={announcementForm}
               onChange={(updates) => setAnnouncementForm((current) => ({ ...current, ...updates }))}
               bodyRequired
+              coverImageFile={mode === "edit" ? editCoverImageFile : createCoverImageFile}
+              setCoverImageFile={mode === "edit" ? setEditCoverImageFile : setCreateCoverImageFile}
             />
             <AnnouncementSpecificFields form={announcementForm} setForm={setAnnouncementForm} />
           </>
@@ -524,6 +584,8 @@ export function NewsUpdatesManager() {
               form={eventForm}
               onChange={(updates) => setEventForm((current) => ({ ...current, ...updates }))}
               bodyRequired={false}
+              coverImageFile={mode === "edit" ? editCoverImageFile : createCoverImageFile}
+              setCoverImageFile={mode === "edit" ? setEditCoverImageFile : setCreateCoverImageFile}
             />
             <EventSpecificFields form={eventForm} setForm={setEventForm} />
           </>
@@ -562,7 +624,7 @@ export function NewsUpdatesManager() {
         </div>
       ) : null}
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-[760px] divide-y divide-slate-200">
+        <table className="min-w-[840px] divide-y divide-slate-200">
           <thead className="bg-slate-50">
             <tr>
               <th className="w-10 px-4 py-3">
@@ -573,6 +635,7 @@ export function NewsUpdatesManager() {
                   onChange={(event) => setSelectedItems(event.target.checked ? items.map((item) => `${item.type}:${item.item.id}`) : [])}
                 />
               </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Image</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Title</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Type</th>
               <th className="px-5 py-3 text-left text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Status</th>
@@ -582,11 +645,11 @@ export function NewsUpdatesManager() {
           </thead>
           <tbody className="divide-y divide-slate-200">
             {isLoading ? (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">Loading news and updates...</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-500">Loading news and updates...</td></tr>
             ) : error && items.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-red-700">{error}</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-sm text-red-700">{error}</td></tr>
             ) : items.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-slate-500">No news, updates, or events yet.</td></tr>
+              <tr><td colSpan={7} className="px-5 py-8 text-center text-sm text-slate-500">No news, updates, or events yet.</td></tr>
             ) : items.map((item) => (
               <tr key={`${item.type}-${item.item.id}`} className="hover:bg-slate-50">
                 <td className="px-4 py-4">
@@ -596,6 +659,19 @@ export function NewsUpdatesManager() {
                     checked={selectedItems.includes(`${item.type}:${item.item.id}`)}
                     onChange={(event) => setSelectedItems((current) => event.target.checked ? [...current, `${item.type}:${item.item.id}`] : current.filter((id) => id !== `${item.type}:${item.item.id}`))}
                   />
+                </td>
+                <td className="px-4 py-3">
+                  {item.item.coverImageUrl ? (
+                    <>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={item.item.coverImageUrl}
+                        alt={`${item.item.title} cover`}
+                        className="block h-auto max-h-14 w-auto max-w-24 object-contain"
+                        onError={(event) => { event.currentTarget.hidden = true; }}
+                      />
+                    </>
+                  ) : <span className="text-xs text-slate-400">None</span>}
                 </td>
                 <td className="px-5 py-4 text-sm font-medium text-slate-900">{item.item.title}</td>
                 <td className="px-5 py-4 text-sm text-slate-700">{item.type === "news" ? "News post" : item.type === "event" ? "Event" : item.item.priority === "urgent" ? "Urgent update" : "Update"}</td>

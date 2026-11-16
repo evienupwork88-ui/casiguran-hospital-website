@@ -13,12 +13,23 @@ import {
   type RadiologyContent,
 } from "@/lib/api/radiology";
 
-type RadiologyForm = Pick<RadiologyContent, "title" | "generalInformation" | "highlights" | "clinicSchedule" | "organizationalStructureDescription">;
+type RadiologyForm = Pick<RadiologyContent, "title" | "generalInformation" | "highlights" | "radiologyServiceGroups" | "clinicSchedule" | "organizationalStructureDescription">;
+
+const defaultRadiologyServiceGroups = [
+  { category: "CHEST & THORAX", services: [] as string[] },
+  { category: "HEAD, NECK & FACE", services: [] as string[] },
+  { category: "SPINE & VERTEBRAL COLUMN", services: [] as string[] },
+  { category: "ABDOMEN & PELVIS", services: [] as string[] },
+  { category: "UPPER EXTREMITY", services: [] as string[] },
+  { category: "LOWER EXTREMITY", services: [] as string[] },
+  { category: "SPECIAL PROCEDURES", services: [] as string[] },
+];
 
 const emptyForm: RadiologyForm = {
   title: "Radiology",
   generalInformation: "",
   highlights: [],
+  radiologyServiceGroups: defaultRadiologyServiceGroups,
   clinicSchedule: [],
   organizationalStructureDescription: "",
 };
@@ -50,6 +61,7 @@ export default function AdminRadiologyPage() {
           title: data.title,
           generalInformation: data.generalInformation,
           highlights: data.highlights,
+          radiologyServiceGroups: data.radiologyServiceGroups.length ? data.radiologyServiceGroups : defaultRadiologyServiceGroups,
           clinicSchedule: data.clinicSchedule,
           organizationalStructureDescription: data.organizationalStructureDescription,
         });
@@ -87,6 +99,7 @@ export default function AdminRadiologyPage() {
         title: saved.title,
         generalInformation: saved.generalInformation,
         highlights: saved.highlights,
+        radiologyServiceGroups: saved.radiologyServiceGroups,
         clinicSchedule: saved.clinicSchedule,
         organizationalStructureDescription: saved.organizationalStructureDescription,
       });
@@ -152,10 +165,30 @@ export default function AdminRadiologyPage() {
     }
   }
 
-  function updateHighlight(index: number, field: "title" | "description", value: string) {
+  function updateRadiologyService(groupIndex: number, serviceIndex: number, value: string) {
     setForm((current) => ({
       ...current,
-      highlights: current.highlights.map((item, itemIndex) => itemIndex === index ? { ...item, [field]: value } : item),
+      radiologyServiceGroups: current.radiologyServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: group.services.map((service, itemIndex) => itemIndex === serviceIndex ? value : service) }
+        : group),
+    }));
+  }
+
+  function addRadiologyService(groupIndex: number) {
+    setForm((current) => ({
+      ...current,
+      radiologyServiceGroups: current.radiologyServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: [...group.services, ""] }
+        : group),
+    }));
+  }
+
+  function removeRadiologyService(groupIndex: number, serviceIndex: number) {
+    setForm((current) => ({
+      ...current,
+      radiologyServiceGroups: current.radiologyServiceGroups.map((group, index) => index === groupIndex
+        ? { ...group, services: group.services.filter((_, itemIndex) => itemIndex !== serviceIndex) }
+        : group),
     }));
   }
 
@@ -207,22 +240,54 @@ export default function AdminRadiologyPage() {
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Radiology services</h2>
-                <p className="mt-1 text-sm text-slate-600">Add the services visitors should know about.</p>
+                <h2 className="text-lg font-semibold text-slate-900">Radiology test list</h2>
+                <p className="mt-1 text-sm text-slate-600">Manage service names by category. Prices are not displayed.</p>
               </div>
-              <button type="button" onClick={() => setForm((current) => ({ ...current, highlights: [...current.highlights, { title: "", description: "" }] }))} disabled={form.highlights.length >= 30} className="rounded-lg border border-violet-200 px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50">Add service</button>
             </div>
-            {form.highlights.length ? (
-              <div className="mt-4 space-y-4">
-                {form.highlights.map((item, index) => (
-                  <div key={index} className="grid gap-3 rounded-xl border border-slate-200 p-4 md:grid-cols-[1fr_1.5fr_auto] md:items-start">
-                    <label className={labelClassName}>Service title<input value={item.title} onChange={(event) => updateHighlight(index, "title", event.target.value)} maxLength={200} required className={inputClassName} /></label>
-                    <label className={labelClassName}>Description<textarea value={item.description} onChange={(event) => updateHighlight(index, "description", event.target.value)} maxLength={1000} rows={2} className={inputClassName} /></label>
-                    <button type="button" onClick={() => setForm((current) => ({ ...current, highlights: current.highlights.filter((_, itemIndex) => itemIndex !== index) }))} className="mt-6 rounded-lg px-3 py-2 text-sm font-semibold text-red-700 hover:bg-red-50">Remove</button>
+            <div className="mt-5 grid gap-5 xl:grid-cols-2">
+              {form.radiologyServiceGroups.map((group, groupIndex) => (
+                <section key={group.category} className="rounded-xl border border-violet-100 bg-violet-50/30 p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <h3 className="font-semibold text-slate-900">{group.category}</h3>
+                    <button
+                      type="button"
+                      onClick={() => addRadiologyService(groupIndex)}
+                      disabled={group.services.length >= 100}
+                      className="rounded-lg border border-violet-200 bg-white px-3 py-2 text-sm font-semibold text-violet-700 hover:bg-violet-50 disabled:opacity-50"
+                    >
+                      Add service
+                    </button>
                   </div>
-                ))}
+                  {group.services.length ? (
+                    <div className="mt-4 space-y-3">
+                      {group.services.map((service, serviceIndex) => (
+                        <div key={`${group.category}-${serviceIndex}`} className="flex items-start gap-2">
+                          <label className="sr-only" htmlFor={`radiology-service-${groupIndex}-${serviceIndex}`}>{group.category} service {serviceIndex + 1}</label>
+                          <input
+                            id={`radiology-service-${groupIndex}-${serviceIndex}`}
+                            value={service}
+                            onChange={(event) => updateRadiologyService(groupIndex, serviceIndex, event.target.value)}
+                            maxLength={200}
+                            required
+                            className={inputClassName}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => removeRadiologyService(groupIndex, serviceIndex)}
+                            aria-label={`Remove ${service || `service ${serviceIndex + 1}`}`}
+                            className="mt-2 shrink-0 rounded-lg px-3 py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mt-4 rounded-lg border border-dashed border-slate-300 p-4 text-sm text-slate-500">No services in this category.</p>
+                  )}
+                </section>
+              ))}
               </div>
-            ) : <p className="mt-4 rounded-xl border border-dashed border-slate-300 p-5 text-sm text-slate-500">No services added yet.</p>}
           </section>
 
           <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
